@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, VideoIcon, VideoOff, PhoneOff, Shield, Clock, Loader2, Save } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, PhoneOff, Shield, Clock, Loader2, Save, Stethoscope } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 import Peer from 'peerjs';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -181,7 +181,10 @@ export default function Videollamada() {
                         <Shield className="text-white w-5 h-5" />
                         <span className="text-white font-bold">Consulta Segura (PeerServer Pro)</span>
                     </div>
-                    <div className="bg-black/20 px-4 py-1 rounded-full text-white font-mono">{tiempoLlamada}</div>
+                    <div className="bg-black/20 px-4 py-1 rounded-full text-white font-mono flex items-center gap-2">
+                        <Clock size={16} className="text-emerald-400" />
+                        <span>{tiempoLlamada}</span>
+                    </div>
                 </div>
 
                 <div className="grid lg:grid-cols-4 gap-0">
@@ -199,7 +202,7 @@ export default function Videollamada() {
                         </div>
                         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-4 bg-gray-900/80 backdrop-blur-md p-4 rounded-full border border-gray-700">
                             <button onClick={toggleMic} className={`p-3 rounded-full ${microfonoActivo ? 'bg-gray-700 text-white' : 'bg-red-500 text-white'}`}><Mic size={20} /></button>
-                            <button onClick={toggleVideo} className={`p-3 rounded-full ${camaraActiva ? 'bg-gray-700 text-white' : 'bg-red-500 text-white'}`}><VideoIcon size={20} /></button>
+                            <button onClick={toggleVideo} className={`p-3 rounded-full ${camaraActiva ? 'bg-gray-700 text-white' : 'bg-red-500 text-white'}`}><Video size={20} /></button>
                             <button onClick={finalizarLlamada} className="p-3 bg-red-600 text-white rounded-full hover:bg-red-700"><PhoneOff size={20} /></button>
                         </div>
                     </div>
