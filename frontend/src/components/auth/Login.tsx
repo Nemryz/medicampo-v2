@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { API_URL } from '../../lib/api';
 import { Mail, Lock, ArrowRight, HeartPulse, Loader2 } from 'lucide-react';
 
 export default function Login({ onSwitchToRegister }: { onSwitchToRegister: () => void }) {
@@ -15,7 +16,7 @@ export default function Login({ onSwitchToRegister }: { onSwitchToRegister: () =
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:5000/api/auth/login', {
+      const res = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),

@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 
 interface NavbarProps {
     nombreUsuario: string;
-    tipoUsuario: 'paciente' | 'medico';
+    tipoUsuario: 'paciente' | 'medico' | 'admin';
 }
 
 export default function Navbar({ nombreUsuario, tipoUsuario }: NavbarProps) {
@@ -26,15 +26,21 @@ export default function Navbar({ nombreUsuario, tipoUsuario }: NavbarProps) {
                     </div>
 
                     <div className="flex items-center space-x-6">
+                        {/* Botón de Home/Dashboard según rol */}
                         <button
-                            onClick={() => navigate('/room/test-call')}
-                            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${isActive('/room/test-call')
-                                ? 'bg-blue-100 text-blue-700'
-                                : 'text-gray-600 hover:bg-gray-100'
-                                }`}
+                            onClick={() => navigate(
+                                tipoUsuario === 'admin' ? '/admin' :
+                                tipoUsuario === 'medico' ? '/dashboard-medico' :
+                                '/dashboard-paciente'
+                            )}
+                            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                                isActive('/admin') || isActive('/dashboard-medico') || isActive('/dashboard-paciente')
+                                    ? 'bg-blue-100 text-blue-700'
+                                    : 'text-gray-600 hover:bg-gray-100'
+                            }`}
                         >
                             <Video size={20} />
-                            <span>Llamada Prueba</span>
+                            <span>Inicio</span>
                         </button>
 
                         {tipoUsuario === 'paciente' && (

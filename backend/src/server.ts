@@ -9,6 +9,7 @@ import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import authRoutes from './routes/authRoutes';
 import appointmentRoutes from './routes/appointmentRoutes';
+import clinicalRoutes from './routes/clinicalRoutes';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -20,6 +21,7 @@ app.use(express.json());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/appointments', appointmentRoutes);
+app.use('/api/clinical', clinicalRoutes);
 
 app.get('/', (req, res) => {
   res.send('mediCampo API is running with Sockets');

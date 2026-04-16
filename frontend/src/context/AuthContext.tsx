@@ -4,7 +4,7 @@ export interface User {
   id: number;
   name: string;
   email: string;
-  role: string;
+  role: 'PATIENT' | 'DOCTOR' | 'ADMIN';
 }
 
 interface AuthContextType {
@@ -13,9 +13,13 @@ interface AuthContextType {
   login: (token: string, user: User) => void;
   logout: () => void;
   isAuthenticated: boolean;
+  getToken: () => string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const TOKEN_KEY = 'medicampo_token';
+export const USER_KEY = 'medicampo_user';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -23,42 +27,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for saved auth state on mount
-    const savedToken = localStorage.getItem('medicampo_token');
-    const savedUser = localStorage.getItem('medicampo_user');
-    
+    const savedToken = localStorage.getItem(TOKEN_KEY);
+    const savedUser = localStorage.getItem(USER_KEY);
+
     if (savedToken && savedUser) {
       try {
+        const parsedUser = JSON.parse(savedUser) as User;
         setToken(savedToken);
-        setUser(JSON.parse(savedUser));
-      } catch (e) {
-        localStorage.removeItem('medicampo_token');
-        localStorage.removeItem('medicampo_user');
+        setUser(parsedUser);
+      } catch {
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(USER_KEY);
       }
     }
     setLoading(false);
   }, []);
 
   const login = (newToken: string, newUser: User) => {
+    // Limpiar sesión anterior antes de guardar la nueva
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
     setToken(newToken);
     setUser(newUser);
-    localStorage.setItem('medicampo_token', newToken);
-    localStorage.setItem('medicampo_user', JSON.stringify(newUser));
+    localStorage.setItem(TOKEN_KEY, newToken);
+    localStorage.setItem(USER_KEY, JSON.stringify(newUser));
   };
 
   const logout = () => {
     setToken(null);
     setUser(null);
-    localStorage.removeItem('medicampo_token');
-    localStorage.removeItem('medicampo_user');
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    window.location.href = '/';
   };
 
+  const getToken = () => localStorage.getItem(TOKEN_KEY);
+
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-emerald-600 font-semibold tracking-wider animate-pulse">Cargando plataforma...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto" />
+          <p className="text-gray-500 font-medium">Cargando plataforma...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated: !!token }}>
+    <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated: !!token, getToken }}>
       {children}
     </AuthContext.Provider>
   );

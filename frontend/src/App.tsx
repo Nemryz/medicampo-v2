@@ -6,14 +6,25 @@ import HistorialClinico from './components/HistorialClinico';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
 import ReservaCita from './components/ReservaCita';
+import DashboardPaciente from './components/dashboards/DashboardPaciente';
+import DashboardMedico from './components/dashboards/DashboardMedico';
+import DashboardAdmin from './components/dashboards/DashboardAdmin';
 import { useAuth } from './context/AuthContext';
+
+// Componente guard que verifica el rol antes de renderizar
+function RoleRoute({ roles, element }: { roles: string[]; element: JSX.Element }) {
+    const { user } = useAuth();
+    if (!user || !roles.includes(user.role)) {
+        return <Navigate to="/" replace />;
+    }
+    return element;
+}
 
 function App() {
     const { isAuthenticated, user } = useAuth();
     const [authView, setAuthView] = useState<'login' | 'register'>('login');
     const location = useLocation();
 
-    // If completely unauthenticated, force login
     if (!isAuthenticated || !user) {
         return authView === 'login' ? (
             <Login onSwitchToRegister={() => setAuthView('register')} />
@@ -22,27 +33,45 @@ function App() {
         );
     }
 
-    // Determine the homepage redirect dynamically based on Role
-    const defaultRoute = user.role === 'PATIENT' ? '/reserva' : '/historial';
+    // Página de inicio según rol
+    const homeRoute =
+        user.role === 'ADMIN' ? '/admin' :
+        user.role === 'DOCTOR' ? '/dashboard-medico' :
+        '/dashboard-paciente';
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
-            {/* Show Navbar unless inside a Videocall room */}
             {!location.pathname.startsWith('/room/') && (
                 <Navbar
                     nombreUsuario={user.name}
-                    tipoUsuario={user.role.toLowerCase() as 'paciente' | 'medico'}
+                    tipoUsuario={user.role.toLowerCase() as 'paciente' | 'medico' | 'admin'}
                 />
             )}
 
             <main className="flex-1">
                 <Routes>
-                    <Route path="/reserva" element={<ReservaCita />} />
-                    <Route path="/historial" element={<HistorialClinico />} />
+                    {/* Dashboards protegidos por Rol */}
+                    <Route
+                        path="/dashboard-paciente"
+                        element={<RoleRoute roles={['PATIENT']} element={<DashboardPaciente />} />}
+                    />
+                    <Route
+                        path="/dashboard-medico"
+                        element={<RoleRoute roles={['DOCTOR']} element={<DashboardMedico />} />}
+                    />
+                    <Route
+                        path="/admin"
+                        element={<RoleRoute roles={['ADMIN']} element={<DashboardAdmin />} />}
+                    />
+
+                    {/* Funcionalidades compartidas con sus restricciones */}
+                    <Route path="/reserva" element={<RoleRoute roles={['PATIENT']} element={<ReservaCita />} />} />
+                    <Route path="/historial" element={<RoleRoute roles={['DOCTOR', 'ADMIN']} element={<HistorialClinico />} />} />
+                    <Route path="/historial/:appointmentId" element={<HistorialClinico />} />
                     <Route path="/room/:roomId" element={<Videollamada />} />
-                    
-                    {/* Catch all fallback */}
-                    <Route path="*" element={<Navigate to={defaultRoute} replace />} />
+
+                    {/* Redirigir a home según rol */}
+                    <Route path="*" element={<Navigate to={homeRoute} replace />} />
                 </Routes>
             </main>
         </div>

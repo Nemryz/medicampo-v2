@@ -4,6 +4,7 @@ import { io, Socket } from 'socket.io-client';
 import Peer from 'peerjs';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { SOCKET_URL } from '../lib/api';
 
 export default function Videollamada() {
     const { user } = useAuth();
@@ -23,8 +24,8 @@ export default function Videollamada() {
     useEffect(() => {
         if (!roomId) return;
         
-        const token = localStorage.getItem('token');
-        socketRef.current = io('http://localhost:5000', {
+        const token = localStorage.getItem('medicampo_token');
+        socketRef.current = io(SOCKET_URL, {
             auth: { token }
         });
         

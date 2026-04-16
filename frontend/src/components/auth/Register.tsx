@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { API_URL } from '../../lib/api';
 import { Mail, Lock, User, FileText, ArrowRight, HeartPulse, Loader2 } from 'lucide-react';
 
 export default function Register({ onSwitchToLogin }: { onSwitchToLogin: () => void }) {
@@ -20,7 +21,7 @@ export default function Register({ onSwitchToLogin }: { onSwitchToLogin: () => v
 
     try {
       // First register
-      const resReg = await fetch('http://localhost:5000/api/auth/register', {
+      const resReg = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -29,7 +30,7 @@ export default function Register({ onSwitchToLogin }: { onSwitchToLogin: () => v
       if (!resReg.ok) throw new Error(dataReg.error || 'Fallo al registrar usuario');
 
       // Then auto login
-      const resLog = await fetch('http://localhost:5000/api/auth/login', {
+      const resLog = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: formData.email, password: formData.password }),

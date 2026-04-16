@@ -25,22 +25,25 @@ export const getDoctors = async (req: Request, res: Response): Promise<void> => 
 export const createAppointment = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { doctorId, date } = req.body;
-    const patientId = req.user.sub;
-
-    // TODO: Validate that the doctor exists and doesn't have a schedule collision
+    const patientId = Number(req.user.sub); // JWT sub puede venir como string
 
     const appointment = await prisma.appointment.create({
       data: {
         patientId,
-        doctorId,
+        doctorId: Number(doctorId),
         date: new Date(date),
-        meetingLink: `/room/${Math.random().toString(36).substring(7)}`, // Generar ID de sala local
+        meetingLink: `/room/${Math.random().toString(36).substring(7)}`,
         status: 'CONFIRMED'
+      },
+      include: {
+        doctor: { select: { name: true, specialty: true } },
+        patient: { select: { name: true, rut: true } }
       }
     });
 
     res.status(201).json(appointment);
   } catch (error) {
+    console.error('Error creando cita:', error);
     res.status(500).json({ error: 'Error al crear la cita' });
   }
 };
@@ -48,14 +51,15 @@ export const createAppointment = async (req: AuthRequest, res: Response): Promis
 // Mis citas
 export const getMyAppointments = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user.sub;
+    const userId = Number(req.user.sub);
     const role = req.user.role;
 
     const appointments = await prisma.appointment.findMany({
       where: role === 'DOCTOR' ? { doctorId: userId } : { patientId: userId },
       include: {
         doctor: { select: { name: true, specialty: true } },
-        patient: { select: { name: true, rut: true } }
+        patient: { select: { name: true, rut: true } },
+        clinicalRecord: { select: { diagnosis: true } }
       },
       orderBy: { date: 'asc' }
     });
