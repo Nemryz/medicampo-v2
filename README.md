@@ -1,78 +1,49 @@
-# mediCampo - Plataforma de Telemedicina 🏥
+mediCampo - Plataforma de Telemedicina
 
-mediCampo es una aplicación avanzada *Full-Stack* (WebRTC, Node.js, React) diseñada para gestionar clínicas médicas, agendas de pacientes y proporcionar salas de teleconsulta seguras y encriptadas punto a punto.
+mediCampo es una aplicacion full-stack diseñada para gestionar clinicas medicas, agendas de pacientes y proporcionar salas de teleconsulta seguras.
 
-Este proyecto ha escalado desde un prototipo local a una **Arquitectura de Producción Distribuidora** completamente desplegada en la nube.
+Cronica de cambios realizados y arquitectura de produccion
 
-## 🚀 Hitos de Desarrollo Recientes (Sprint 2 - Producción)
+1. Reestructuracion del proyecto
+Se realizo la migracion de una maqueta inicial a una arquitectura profesional separada en frontend y backend. El servidor funciona con Node.js y Express, mientras que la interfaz de usuario utiliza React con TypeScript.
 
-La aplicación ha finalizado su transición a un entorno profesional en **DigitalOcean App Platform**, integrando flujos de negocio médicos reales:
+2. Gestion de base de datos
+Se implemento Prisma ORM para gestionar una base de datos PostgreSQL alojada en DigitalOcean. Se crearon modelos para usuarios, especialidades, citas y fichas clinicas.
 
-- ✅ **H4 - Ficha Clínica Digital y Diagnóstico:** 
-  - Sistema de registro médico en tiempo real. Los doctores pueden emitir **Recetas Médicas** y diagnósticos durante la videollamada.
-  - Almacenamiento persistente de signos vitales (Presión, Peso, Temperatura) asociados a cada atención.
-- ✅ **H5 - Flujo de Aprobación de Citas:** 
-  - Motor de estados para las reservas (`PENDING` -> `CONFIRMED`).
-  - Panel de gestión para médicos que permite aceptar o rechazar solicitudes de pacientes antes de habilitar la sala de video.
-- ✅ **H6 - Despliegue en Producción (Cloud):** 
-  - **Backend:** Node.js desplegado como servicio escalable en DigitalOcean.
-  - **Frontend:** React (Vite) desplegado como sitio estático de alto rendimiento.
-  - **Base de Datos:** PostgreSQL Gestionado con backups y seguridad nativa.
-- ✅ **Estabilidad WebRTC Pro:** 
-  - Integración de servidores **STUN de Google** para asegurar que la videollamada funcione entre diferentes dispositivos y redes (NAT Traversal).
+3. Sistema de autenticacion
+Se configuro un sistema de seguridad basado en JSON Web Tokens (JWT). Las contraseñas se almacenan de forma segura utilizando encriptado Bcrypt.
 
-## 🛠️ Stack Tecnológico Pro
+4. Motor de teleconsulta WebRTC
+Se integro Socket.io para la señalizacion entre usuarios y PeerJS para la conexion de video punto a punto. Se añadieron servidores STUN de Google para mejorar la conectividad entre diferentes redes y dispositivos moviles.
 
-### Backend (API & Real-time)
-- **Node.js & Express:** Servidor robusto con middlewares de seguridad.
-- **Prisma ORM:** Modelado de datos relacional impecable.
-- **PostgreSQL (DigitalOcean):** Persistencia de datos gestionada.
-- **Socket.io:** Señalización WebRTC asíncrona y segura.
-- **JWT & Bcrypt:** Autenticación de nivel bancario.
+5. Flujo de aprobacion de citas
+Se desarrollo una logica de negocio donde las citas tienen estados. El paciente solicita una cita (estado Pendiente) y el medico debe aceptarla desde su panel (estado Confirmado) para que la sala de video se habilite.
 
-### Frontend (Modern UI)
-- **React 18 + TypeScript:** Tipado estricto para evitar errores en tiempo de ejecución.
-- **Tailwind CSS:** Interfaces "Premium Glassmorphism" altamente responsivas.
-- **Lucide-React:** Set de iconos profesionales.
-- **PeerJS:** Gestión inteligente de flujos P2P para video y audio.
+6. Ficha clinica y diagnostico
+Se creo un panel de diagnostico dentro de la videollamada para que el medico registre sintomas, diagnostico y recetas. Se diseño una vista de historial clinico profesional vinculada a la base de datos real y optimizada para impresion.
 
----
+7. Despliegue en DigitalOcean
+Se realizo el despliegue completo en DigitalOcean App Platform. El frontend se sirve como un sitio estatico y el backend como un servicio web, ambos orquestados bajo un mismo dominio mediante reglas de enrutamiento por rutas.
 
-## 💻 Desarrollo Local
+Instrucciones para pruebas en produccion
 
-Si deseas correr mediCampo en tu entorno local:
+Cuentas de acceso para evaluacion:
 
-### 1. Requisitos
-- Node.js (v16+)
-- Instancia de PostgreSQL (o usar la de producción configurando el `.env`)
+Cuenta de administrador
+Email: admin@medicampo.cl
+Contraseña: medicampo123
 
-### 2. Configuración
-Crea un archivo `.env` en la carpeta `backend/` basado en `.env.example`:
-```env
-DATABASE_URL="tu_url_de_postgres"
-JWT_SECRET="tu_clave_secreta"
-PORT=5000
-```
+Cuenta de medico
+Email: doctor@medicampo.cl
+Contraseña: medicampo123
 
-### 3. Ejecución
-En terminales separadas:
+Cuenta de paciente
+Email: paciente@medicampo.cl
+Contraseña: medicampo123
 
-**Backend:**
-```bash
-cd backend
-npm install
-npx prisma generate
-npm run dev
-```
-
-**Frontend:**
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Abra `http://localhost:5173` para empezar.
-
-## 📄 Licencia
-Este proyecto es una implementación profesional para la gestión de salud digital.
+Pasos para efectuar una llamada de prueba:
+1. Iniciar sesion como paciente y agendar una cita con un especialista.
+2. Iniciar sesion como medico en otro navegador o pestaña de incognito.
+3. El medico debe aceptar la solicitud pendiente en su panel de control.
+4. Una vez aceptada, ambos usuarios veran el boton para entrar a la sala.
+5. Iniciar la videollamada y completar el diagnostico medico.
