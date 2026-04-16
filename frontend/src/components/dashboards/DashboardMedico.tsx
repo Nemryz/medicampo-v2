@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Video, FileText, Clock, CheckCircle2, Stethoscope, ChevronRight, Users, HeartPulse } from 'lucide-react';
+import { Video, FileText, Clock, CheckCircle2, Stethoscope, ChevronRight, Users, HeartPulse, Check, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { API_URL } from '../../lib/api';
@@ -19,7 +19,7 @@ export default function DashboardMedico() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchAppointments = () => {
     const token = localStorage.getItem('medicampo_token');
     fetch(`${API_URL}/api/appointments/my-appointments`, {
       headers: { Authorization: `Bearer ${token}` }
@@ -27,7 +27,30 @@ export default function DashboardMedico() {
       .then(r => r.json())
       .then(data => { setAppointments(Array.isArray(data) ? data : []); setLoading(false); })
       .catch(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchAppointments();
   }, []);
+
+  const handleStatusUpdate = async (id: number, status: string) => {
+    try {
+      const token = localStorage.getItem('medicampo_token');
+      const res = await fetch(`${API_URL}/api/appointments/${id}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ status })
+      });
+      if (res.ok) {
+        fetchAppointments();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const today = new Date().toDateString();
   const todayApts = appointments.filter(a => new Date(a.date).toDateString() === today);
@@ -77,14 +100,45 @@ export default function DashboardMedico() {
           <Stethoscope className="text-emerald-500 w-5 h-5" /> Agenda de Hoy
         </h2>
         {loading ? <div className="text-center py-10 text-gray-400">Cargando...</div> :
-          todayApts.length === 0 ? (
+          (todayApts.length === 0 && pending.length === 0) ? (
             <div className="text-center py-12">
               <Clock className="w-12 h-12 text-gray-200 mx-auto mb-3" />
               <p className="text-gray-400">No tienes consultas programadas para hoy.</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {todayApts.map(apt => (
+              {/* Sección de Pendientes de Aprobación */}
+              {pending.filter(a => a.status === 'PENDING').map(apt => (
+                <div key={apt.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl border-2 border-yellow-200 bg-yellow-50/50 transition-all gap-3 animate-pulse-slow">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-yellow-500 flex items-center justify-center text-white font-bold text-lg shadow">
+                      {apt.patient?.name?.[0] || 'P'}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900">{apt.patient?.name}</p>
+                      <p className="text-xs text-yellow-700 font-medium">Solicitud Pendiente</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{new Date(apt.date).toLocaleDateString()} — {new Date(apt.date).toLocaleTimeString('es-CL', { timeStyle: 'short' })} hrs</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleStatusUpdate(apt.id, 'CONFIRMED')}
+                      className="flex items-center gap-1 px-4 py-2 bg-emerald-600 text-white text-sm rounded-xl hover:bg-emerald-700 transition-colors shadow-sm"
+                    >
+                      <Check className="w-4 h-4" /> Aceptar
+                    </button>
+                    <button
+                      onClick={() => handleStatusUpdate(apt.id, 'CANCELLED')}
+                      className="flex items-center gap-1 px-4 py-2 bg-white border border-red-200 text-red-600 text-sm rounded-xl hover:bg-red-50 transition-colors"
+                    >
+                      <X className="w-4 h-4" /> Rechazar
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {/* Consultas Confirmadas de Hoy */}
+              {todayApts.filter(a => a.status === 'CONFIRMED').map(apt => (
                 <div key={apt.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl border border-gray-100 hover:border-emerald-200 hover:bg-emerald-50/30 transition-all gap-3">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white font-bold text-lg shadow">

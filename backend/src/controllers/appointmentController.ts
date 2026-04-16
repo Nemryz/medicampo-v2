@@ -33,7 +33,7 @@ export const createAppointment = async (req: AuthRequest, res: Response): Promis
         doctorId: Number(doctorId),
         date: new Date(date),
         meetingLink: `/room/${Math.random().toString(36).substring(7)}`,
-        status: 'CONFIRMED'
+        status: 'PENDING'
       },
       include: {
         doctor: { select: { name: true, specialty: true } },
@@ -93,5 +93,33 @@ export const getAppointmentByRoomId = async (req: AuthRequest, res: Response): P
     res.json(appointment);
   } catch (error) {
     res.status(500).json({ error: 'Error al obtener datos de la sala' });
+  }
+};
+
+// Actualizar estado de cita (Aceptar/Rechazar)
+export const updateAppointmentStatus = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const userId = Number(req.user.sub);
+
+    // Solo el médico asignado puede cambiar el estado
+    const appointment = await prisma.appointment.findFirst({
+      where: { id: Number(id), doctorId: userId }
+    });
+
+    if (!appointment) {
+      res.status(403).json({ error: 'No tienes permiso para modificar esta cita' });
+      return;
+    }
+
+    const updated = await prisma.appointment.update({
+      where: { id: Number(id) },
+      data: { status }
+    });
+
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al actualizar el estado de la cita' });
   }
 };

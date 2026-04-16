@@ -73,17 +73,10 @@ export default function ReservaCita() {
         <div className="w-20 h-20 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mb-6">
           <CheckCircle2 className="w-10 h-10" />
         </div>
-        <h2 className="text-3xl font-bold text-gray-800 mb-2">¡Cita Confirmada!</h2>
-        <p className="text-gray-500 text-center mb-6">Tu teleconsulta ha sido agendada con éxito y guardada en tu historial.</p>
+        <h2 className="text-3xl font-bold text-gray-800 mb-2">Solicitud Enviada</h2>
+        <p className="text-gray-500 text-center mb-6">Tu propuesta de teleconsulta ha sido enviada con éxito. El médico recibirá una notificación para confirmarla pronto.</p>
 
-        {meetingLink && (
-          <button
-            onClick={() => navigate(meetingLink)}
-            className="mb-4 flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl font-semibold hover:from-blue-500 hover:to-blue-400 transition-all shadow-lg shadow-blue-500/20"
-          >
-            <Video className="w-5 h-5" /> Entrar a la Sala de Video
-          </button>
-        )}
+        <p className="text-sm text-blue-600 font-medium mb-6 italic">Podrás entrar una vez el médico acepte la cita.</p>
 
         <button
           onClick={() => { setSuccess(false); setSelectedDoctor(null); setSelectedDate(''); setSelectedTime(''); setMeetingLink(null); }}

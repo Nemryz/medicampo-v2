@@ -2,60 +2,77 @@
 
 mediCampo es una aplicación avanzada *Full-Stack* (WebRTC, Node.js, React) diseñada para gestionar clínicas médicas, agendas de pacientes y proporcionar salas de teleconsulta seguras y encriptadas punto a punto.
 
-Este proyecto ha finalizado su **Primer Ciclo de Desarrollo (Sprint 1)**, implementando una arquitectura profesional basándose en infraestructura de DigitalOcean.
+Este proyecto ha escalado desde un prototipo local a una **Arquitectura de Producción Distribuidora** completamente desplegada en la nube.
 
-## 🚀 Avances Actuales (Primer Ciclo)
+## 🚀 Hitos de Desarrollo Recientes (Sprint 2 - Producción)
 
-La aplicación ya ha abandonado el estado de maqueta y ahora consta de implementaciones reales asíncronas y conectividad de bases de datos:
+La aplicación ha finalizado su transición a un entorno profesional en **DigitalOcean App Platform**, integrando flujos de negocio médicos reales:
 
-- ✅ **H0 - Arquitectura Base:** 
-  - Migración exitosa de esquemas desde `bolt.new` a un entorno local robusto con cliente (`Vite/React`) y servidor (`Node.js/Express`).
-  - Implementación de **Prisma ORM** para las consultas rápidas a Base de Datos.
-- ✅ **H1 - Autenticación Segura (JWT):** 
-  - Interfaces de **glassmorphism premium** (`Login` y `Register`).
-  - Creación de encriptado de contraseñas usando `bcryptjs` e intercambio de tokens por `localStorage`. Control de acceso estricto en el backend con Middlewares.
-- ✅ **H2 - Reserva de Teleconsulta:** 
-  - Creación de Rutas con React (`react-router-dom`) y modelos estructurales para *Pacientes*, *Médicos*, *Especialidades* y *Citas* alojados directamente en un Cluster asíncrono gestionado de **PostgreSQL en DigitalOcean**.
-- ✅ **H3 - Motor de Videollamada (WebRTC):** 
-  - Transformación del `server.ts` a un receptor de **Socket.io**.
-  - Puesta en marcha de la sala de videollamadas con acceso verificado usando **PeerJS** para inyectar un flujo local Peer-to-Peer (`P2P`), solicitando componentes de hardware (`navigator.mediaDevices`).
-  - Sala de espera lógica integrada para el rol *Paciente*.
+- ✅ **H4 - Ficha Clínica Digital y Diagnóstico:** 
+  - Sistema de registro médico en tiempo real. Los doctores pueden emitir **Recetas Médicas** y diagnósticos durante la videollamada.
+  - Almacenamiento persistente de signos vitales (Presión, Peso, Temperatura) asociados a cada atención.
+- ✅ **H5 - Flujo de Aprobación de Citas:** 
+  - Motor de estados para las reservas (`PENDING` -> `CONFIRMED`).
+  - Panel de gestión para médicos que permite aceptar o rechazar solicitudes de pacientes antes de habilitar la sala de video.
+- ✅ **H6 - Despliegue en Producción (Cloud):** 
+  - **Backend:** Node.js desplegado como servicio escalable en DigitalOcean.
+  - **Frontend:** React (Vite) desplegado como sitio estático de alto rendimiento.
+  - **Base de Datos:** PostgreSQL Gestionado con backups y seguridad nativa.
+- ✅ **Estabilidad WebRTC Pro:** 
+  - Integración de servidores **STUN de Google** para asegurar que la videollamada funcione entre diferentes dispositivos y redes (NAT Traversal).
 
-## 🛠️ Tecnologías Empleadas
+## 🛠️ Stack Tecnológico Pro
 
-### Backend (API)
-- **Node.js + Express:** Lógica enrutadora.
-- **Prisma ORM:** Manejo de datos y sincronización ágil.
-- **PostgreSQL:** Base de datos relacional (alojada en DigitalOcean).
-- **Socket.io:** WebSockets para el "Signal Server" de la llamada.
-- **Bcrypt & JWT:** Criptografía de datos seguros.
+### Backend (API & Real-time)
+- **Node.js & Express:** Servidor robusto con middlewares de seguridad.
+- **Prisma ORM:** Modelado de datos relacional impecable.
+- **PostgreSQL (DigitalOcean):** Persistencia de datos gestionada.
+- **Socket.io:** Señalización WebRTC asíncrona y segura.
+- **JWT & Bcrypt:** Autenticación de nivel bancario.
 
-### Frontend (User Interface)
-- **React + TypeScript (Vite):** Aplicación de una sola página ultra rápida.
-- **Tailwind CSS:** Diseño UI con sombreadores avanzados e iterativos.
-- **Lucide-React:** Set de iconografías.
-- **PeerJS:** Encapsulador para la API WebRTC nativa Web.
+### Frontend (Modern UI)
+- **React 18 + TypeScript:** Tipado estricto para evitar errores en tiempo de ejecución.
+- **Tailwind CSS:** Interfaces "Premium Glassmorphism" altamente responsivas.
+- **Lucide-React:** Set de iconos profesionales.
+- **PeerJS:** Gestión inteligente de flujos P2P para video y audio.
 
 ---
 
-## 🏃 Instrucciones para Ejecución Local
+## 💻 Desarrollo Local
 
-Para correr este proyecto en modo desarrollo con las vistas de React y su propio servidor Node, se requieren dos terminales separadas ubicadas dentro de la raíz de la carpeta base del proyecto:
+Si deseas correr mediCampo en tu entorno local:
 
-### 1. Iniciar Servidor (Node / Prisma)
-Usa los scripts especiales alojados en el `package.json` para encender el servidor y sincronizar tablas.
+### 1. Requisitos
+- Node.js (v16+)
+- Instancia de PostgreSQL (o usar la de producción configurando el `.env`)
+
+### 2. Configuración
+Crea un archivo `.env` en la carpeta `backend/` basado en `.env.example`:
+```env
+DATABASE_URL="tu_url_de_postgres"
+JWT_SECRET="tu_clave_secreta"
+PORT=5000
+```
+
+### 3. Ejecución
+En terminales separadas:
+
+**Backend:**
 ```bash
 cd backend
 npm install
-npm run db:push
+npx prisma generate
 npm run dev
 ```
 
-### 2. Iniciar Frontend (Vite)
-Abre otra terminal:
+**Frontend:**
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-Entra a `http://localhost:5173`. Tu aplicación requerirá ingresar cuenta para probar los flujos seguros de citas y WebRTC.
+
+Abra `http://localhost:5173` para empezar.
+
+## 📄 Licencia
+Este proyecto es una implementación profesional para la gestión de salud digital.

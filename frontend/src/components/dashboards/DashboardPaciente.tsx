@@ -39,7 +39,7 @@ export default function DashboardPaciente() {
       CANCELLED: 'bg-red-100 text-red-700',
     };
     const label: Record<string, string> = {
-      CONFIRMED: 'Confirmada', PENDING: 'Pendiente', COMPLETED: 'Completada', CANCELLED: 'Cancelada'
+      CONFIRMED: 'Confirmada', PENDING: 'Esperando Médico', COMPLETED: 'Completada', CANCELLED: 'Rechazada'
     };
     return <span className={`px-3 py-1 rounded-full text-xs font-semibold ${map[status] || 'bg-gray-100 text-gray-600'}`}>{label[status] || status}</span>;
   };
@@ -108,14 +108,18 @@ export default function DashboardPaciente() {
                 </div>
                 <div className="flex items-center gap-3">
                   {statusBadge(apt.status)}
-                  {apt.meetingLink && (
+                  {apt.meetingLink && apt.status === 'CONFIRMED' ? (
                     <button
                       onClick={() => navigate(apt.meetingLink!)}
                       className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white text-sm rounded-xl hover:bg-blue-700 transition-colors"
                     >
-                      <Video className="w-4 h-4" /> Entrar
+                      <Video className="w-4 h-4" /> Entrar en Sala
                     </button>
-                  )}
+                  ) : apt.status === 'PENDING' ? (
+                    <span className="text-[10px] bg-gray-50 text-gray-400 px-3 py-2 rounded-xl border border-gray-100 font-medium whitespace-nowrap">
+                      Esperando Médico...
+                    </span>
+                  ) : null}
                 </div>
               </div>
             ))}
