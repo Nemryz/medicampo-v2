@@ -66,7 +66,7 @@ function App() {
 
                     {/* Funcionalidades compartidas con sus restricciones */}
                     <Route path="/reserva" element={<RoleRoute roles={['PATIENT']} element={<ReservaCita />} />} />
-                    <Route path="/historial" element={<RoleRoute roles={['DOCTOR', 'ADMIN']} element={<HistorialClinico />} />} />
+                    <Route path="/historial" element={<RoleRoute roles={['PATIENT', 'DOCTOR', 'ADMIN']} element={<HistorialClinico />} />} />
                     <Route path="/historial/:appointmentId" element={<HistorialClinico />} />
                     <Route path="/room/:roomId" element={<Videollamada />} />
 

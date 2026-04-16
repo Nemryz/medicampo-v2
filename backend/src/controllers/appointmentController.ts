@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { AuthRequest } from '../middleware/authMiddleware';
 
 const prisma = new PrismaClient();
@@ -67,5 +67,31 @@ export const getMyAppointments = async (req: AuthRequest, res: Response): Promis
     res.json(appointments);
   } catch (error) {
     res.status(500).json({ error: 'Error al obtener tu agenda de citas' });
+  }
+};
+
+// Obtener info de cita por link de sala
+export const getAppointmentByRoomId = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { roomId } = req.params;
+    const fullLink = `/room/${roomId}`;
+
+    const appointment = await prisma.appointment.findFirst({
+      where: { meetingLink: fullLink },
+      include: {
+        doctor: { select: { id: true, name: true, specialty: true } },
+        patient: { select: { id: true, name: true, rut: true } },
+        clinicalRecord: true
+      }
+    });
+
+    if (!appointment) {
+      res.status(404).json({ error: 'Cita no encontrada para esta sala' });
+      return;
+    }
+
+    res.json(appointment);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener datos de la sala' });
   }
 };

@@ -1,10 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, VideoIcon, VideoOff, PhoneOff, Shield, Clock, Loader2 } from 'lucide-react';
+import { Mic, MicOff, VideoIcon, VideoOff, PhoneOff, Shield, Clock, Loader2, Save } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 import Peer from 'peerjs';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { SOCKET_URL } from '../lib/api';
+import { SOCKET_URL, API_URL } from '../lib/api';
+
+interface AppointData {
+    id: number;
+    patient: { name: string; rut: string };
+    doctor: { name: string; specialty: { name: string } | null };
+}
 
 export default function Videollamada() {
     const { user } = useAuth();
@@ -18,6 +24,21 @@ export default function Videollamada() {
     const myStreamRef = useRef<MediaStream | null>(null);
     const socketRef = useRef<Socket | null>(null);
     const peerRef = useRef<Peer | null>(null);
+    const navigate = useNavigate();
+
+    const [appointment, setAppointment] = useState<AppointData | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
+    
+    // Formulario médico
+    const [formData, setFormData] = useState({
+        symptoms: '',
+        diagnosis: '',
+        prescription: '',
+        weight: '',
+        height: '',
+        bloodPressure: '',
+        temperature: ''
+    });
 
     const { roomId } = useParams<{ roomId: string }>();
 
@@ -25,6 +46,17 @@ export default function Videollamada() {
         if (!roomId) return;
         
         const token = localStorage.getItem('medicampo_token');
+        
+        // Fetch appointment info
+        fetch(`${API_URL}/api/appointments/room/${roomId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.id) setAppointment(data);
+        })
+        .catch(console.error);
+
         socketRef.current = io(SOCKET_URL, {
             auth: { token }
         });
@@ -106,7 +138,36 @@ export default function Videollamada() {
     const finalizarLlamada = () => {
         myStreamRef.current?.getTracks().forEach(track => track.stop());
         socketRef.current?.disconnect();
-        window.location.reload();
+        navigate(-1);
+    };
+
+    const handleSaveRecord = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!appointment) return;
+        
+        setIsSaving(true);
+        try {
+            const token = localStorage.getItem('medicampo_token');
+            const res = await fetch(`${API_URL}/api/clinical/${appointment.id}`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            if (res.ok) {
+                alert('✓ Ficha clínica guardada exitosamente. Finalizando consulta...');
+                finalizarLlamada();
+            } else {
+                alert('Error al guardar la ficha');
+            }
+        } catch (error) {
+            alert('Error de conexión');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
@@ -214,30 +275,108 @@ export default function Videollamada() {
                         </div>
 
                         {/* Detalles Panel Right */}
-                        <div className="lg:col-span-1 bg-gray-800 rounded-2xl p-6 border border-gray-700/50 ml-1">
-                            <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+                        <div className="lg:col-span-1 bg-gray-800 rounded-2xl p-5 border border-gray-700/50 ml-1 overflow-y-auto max-h-[calc(100vh-120px)]">
+                            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                                 <Shield className="text-emerald-400" />
-                                Detalles Médicos
+                                {user?.role === 'DOCTOR' ? 'Panel de Diagnóstico' : 'Detalles Médicos'}
                             </h3>
 
-                            <div className="space-y-4">
-                                <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700">
-                                    <p className="text-xs text-gray-400 uppercase mb-1">Paciente actual</p>
-                                    <p className="text-sm font-semibold text-gray-200">{user?.role === 'PATIENT' ? user.name : 'Paciente Conectado'}</p>
-                                    <p className="text-sm text-gray-500 flex items-center gap-1 mt-1"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> En línea</p>
-                                </div>
+                            {user?.role === 'DOCTOR' ? (
+                                <form onSubmit={handleSaveRecord} className="space-y-4">
+                                    <div className="bg-gray-900/50 rounded-xl p-3 border border-gray-700">
+                                        <p className="text-xs text-gray-400 uppercase mb-1">Paciente</p>
+                                        <p className="text-sm font-semibold text-white">{appointment?.patient.name || 'Cargando...'}</p>
+                                    </div>
 
-                                <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700">
-                                    <p className="text-xs text-gray-400 uppercase mb-1">Motivo de Consulta</p>
-                                    <p className="text-sm font-medium text-gray-300">Control General</p>
+                                    <div>
+                                        <label className="text-xs text-gray-400 uppercase">Síntomas Reportados</label>
+                                        <textarea 
+                                            value={formData.symptoms}
+                                            onChange={e => setFormData({...formData, symptoms: e.target.value})}
+                                            className="w-full mt-1 bg-gray-900 border border-gray-700 rounded-lg p-2 text-sm text-white focus:ring-1 focus:ring-emerald-500" 
+                                            rows={2}
+                                            placeholder="..."
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="text-xs text-gray-400 uppercase">Diagnóstico Médico</label>
+                                        <textarea 
+                                            value={formData.diagnosis}
+                                            onChange={e => setFormData({...formData, diagnosis: e.target.value})}
+                                            className="w-full mt-1 bg-gray-900 border border-gray-700 rounded-lg p-2 text-sm text-white focus:ring-1 focus:ring-emerald-500" 
+                                            rows={2}
+                                            placeholder="..."
+                                            required
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="text-xs text-gray-400 uppercase">Receta / Prescripción</label>
+                                        <textarea 
+                                            value={formData.prescription}
+                                            onChange={e => setFormData({...formData, prescription: e.target.value})}
+                                            className="w-full mt-1 bg-gray-900 border border-gray-700 rounded-lg p-2 text-sm text-white focus:ring-1 focus:ring-emerald-500" 
+                                            rows={3}
+                                            placeholder="Medicamentos e indicaciones..."
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label className="text-[10px] text-gray-400 uppercase">Peso (kg)</label>
+                                            <input 
+                                                type="text" 
+                                                value={formData.weight}
+                                                onChange={e => setFormData({...formData, weight: e.target.value})}
+                                                className="w-full bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-xs text-white" 
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] text-gray-400 uppercase">Presión Art.</label>
+                                            <input 
+                                                type="text" 
+                                                value={formData.bloodPressure}
+                                                onChange={e => setFormData({...formData, bloodPressure: e.target.value})}
+                                                className="w-full bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-xs text-white" 
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <button 
+                                        type="submit"
+                                        disabled={isSaving}
+                                        className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 mt-4"
+                                    >
+                                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                        Guardar y Finalizar
+                                    </button>
+                                </form>
+                            ) : (
+                                <div className="space-y-4">
+                                    <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700">
+                                        <p className="text-xs text-gray-400 uppercase mb-1">Médico Atendiendo</p>
+                                        <p className="text-sm font-semibold text-gray-200">{appointment?.doctor.name || 'Cargando...'}</p>
+                                        <p className="text-xs text-emerald-500 mt-1">{appointment?.doctor.specialty?.name || 'Medicina General'}</p>
+                                    </div>
+
+                                    <div className="bg-emerald-900/20 border border-emerald-500/30 rounded-xl p-4 mt-6">
+                                        <p className="text-xs text-emerald-100 leading-relaxed uppercase font-bold mb-2">Información de Seguridad</p>
+                                        <p className="text-xs text-emerald-100 leading-relaxed">
+                                            Tu privacidad es prioridad. Los diagnósticos se almacenan bajo cifrado una vez que el médico finaliza la tanda del historial clínico.
+                                        </p>
+                                    </div>
+
+                                    <div className="pt-4">
+                                        <button 
+                                            onClick={finalizarLlamada}
+                                            className="w-full py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-xl text-sm transition-all"
+                                        >
+                                            Salir de la Sala
+                                        </button>
+                                    </div>
                                 </div>
-                                
-                                <div className="bg-emerald-900/20 border border-emerald-500/30 rounded-xl p-4 mt-6">
-                                    <p className="text-sm text-emerald-100 leading-relaxed">
-                                        <strong>Transmisión Segura:</strong> Las imágenes y sonido se transmiten directamente entre los dispositivos y no se almacenan en nuestros servidores.
-                                    </p>
-                                </div>
-                            </div>
+                            )}
                         </div>
                     </div>
                 </div>
