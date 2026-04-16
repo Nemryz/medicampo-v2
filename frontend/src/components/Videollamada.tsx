@@ -94,21 +94,35 @@ export default function Videollamada() {
             });
 
             socketRef.current?.on('user-connected', userId => {
-                console.log('Usuario conectado:', userId);
-                const call = peerRef.current?.call(userId, stream);
-                setIsConnected(true);
-                call?.on('stream', userVideoStream => {
-                    if (remoteVideoRef.current) {
-                        remoteVideoRef.current.srcObject = userVideoStream;
+                console.log('Detectado nuevo usuario en sala:', userId);
+                // Pequeño delay para asegurar que el receptor esté listo
+                setTimeout(() => {
+                    const call = peerRef.current?.call(userId, stream);
+                    if (call) {
+                        setIsConnected(true);
+                        call.on('stream', userVideoStream => {
+                            if (remoteVideoRef.current) {
+                                remoteVideoRef.current.srcObject = userVideoStream;
+                            }
+                        });
+                        call.on('error', console.error);
                     }
-                });
+                }, 1000);
             });
         }).catch(err => {
             console.error('Error accediendo a dispositivos', err);
         });
 
         peerRef.current.on('open', id => {
+            console.log('Mi PeerID es:', id);
             socketRef.current?.emit('join-room', roomId, id);
+        });
+
+        peerRef.current.on('error', err => {
+            console.error('Error en PeerJS:', err);
+            if (err.type === 'peer-unavailable') {
+                console.log('El par no está disponible aún, esperando...');
+            }
         });
 
         // Timer
