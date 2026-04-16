@@ -29,139 +29,131 @@ export default function Videollamada() {
     const [appointment, setAppointment] = useState<AppointData | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     
-    // Formulario médico
     const [formData, setFormData] = useState({
-        symptoms: '',
-        diagnosis: '',
-        prescription: '',
-        weight: '',
-        height: '',
-        bloodPressure: '',
-        temperature: ''
+        symptoms: '', diagnosis: '', prescription: '', weight: '', height: '', bloodPressure: '', temperature: ''
     });
 
     const { roomId } = useParams<{ roomId: string }>();
 
     useEffect(() => {
         if (!roomId) return;
-        
         const token = localStorage.getItem('medicampo_token');
-        
-        // Fetch appointment info
+
+        // PRE-WARMING: Activar cámara DE INMEDIATO
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            .then(stream => {
+                myStreamRef.current = stream;
+                if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+                console.log('Cámara y Micro listos (Pre-warming)');
+            })
+            .catch(err => console.error('Fallo en pre-warming hardware:', err));
+
+        // Fetch info cita
         fetch(`${API_URL}/api/appointments/room/${roomId}`, {
             headers: { Authorization: `Bearer ${token}` }
         })
         .then(r => r.json())
-        .then(data => {
-            if (data.id) setAppointment(data);
-        })
+        .then(data => data.id && setAppointment(data))
         .catch(console.error);
 
-        socketRef.current = io(SOCKET_URL, {
-            auth: { token }
-        });
-        
+        // EXTRAER HOST PARA PEERJS (Apunta a nuestra propia API)
+        const peerHost = SOCKET_URL.replace('https://', '').replace('http://', '').split('/')[0];
+        const isSecure = SOCKET_URL.startsWith('https');
+
         peerRef.current = new Peer({
-            debug: 3, // Mayor log para diagnosticar fallos si ocurren
+            host: peerHost,
+            port: isSecure ? 443 : 5000,
+            path: '/peerjs',
+            secure: isSecure,
+            debug: 3,
             config: {
                 iceServers: [
                     { urls: 'stun:stun.l.google.com:19302' },
                     { urls: 'stun:stun1.l.google.com:19302' },
-                    { urls: 'stun:stun2.l.google.com:19302' },
-                    { urls: 'stun:stun3.l.google.com:19302' },
-                    { urls: 'stun:stun4.l.google.com:19302' },
+                    {
+                        urls: "turn:openrelay.metered.ca:80",
+                        username: "openrelayproject",
+                        credential: "openrelayproject",
+                    },
+                    {
+                        urls: "turn:openrelay.metered.ca:443",
+                        username: "openrelayproject",
+                        credential: "openrelayproject",
+                    }
                 ]
             }
         });
 
-        navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: true
-        }).then(stream => {
-            myStreamRef.current = stream;
-            if (localVideoRef.current) {
-                localVideoRef.current.srcObject = stream;
-            }
-
-            peerRef.current?.on('call', call => {
-                call.answer(stream);
-                call.on('stream', userVideoStream => {
-                    setIsConnected(true);
-                    if (remoteVideoRef.current) {
-                        remoteVideoRef.current.srcObject = userVideoStream;
-                    }
-                });
-            });
-
-            socketRef.current?.on('user-connected', userId => {
-                console.log('Detectado nuevo usuario en sala:', userId);
-                // Pequeño delay para asegurar que el receptor esté listo
-                setTimeout(() => {
-                    const call = peerRef.current?.call(userId, stream);
-                    if (call) {
-                        setIsConnected(true);
-                        call.on('stream', userVideoStream => {
-                            if (remoteVideoRef.current) {
-                                remoteVideoRef.current.srcObject = userVideoStream;
-                            }
-                        });
-                        call.on('error', console.error);
-                    }
-                }, 1000);
-            });
-        }).catch(err => {
-            console.error('Error accediendo a dispositivos', err);
-        });
+        socketRef.current = io(SOCKET_URL, { auth: { token } });
 
         peerRef.current.on('open', id => {
-            console.log('Mi PeerID es:', id);
+            console.log('Conectado a nuestro propio servidor de señalización. ID:', id);
             socketRef.current?.emit('join-room', roomId, id);
         });
 
-        peerRef.current.on('error', err => {
-            console.error('Error en PeerJS:', err);
-            if (err.type === 'peer-unavailable') {
-                console.log('El par no está disponible aún, esperando...');
-            }
+        // ESCUCHAR LLAMADAS ENTRANTES
+        peerRef.current.on('call', call => {
+            console.log('Recibiendo llamada entrante...');
+            const startStream = () => {
+                if(myStreamRef.current) {
+                    call.answer(myStreamRef.current);
+                    call.on('stream', remoteStream => {
+                        setIsConnected(true);
+                        if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream;
+                    });
+                } else {
+                    setTimeout(startStream, 500); // Reintentar si el stream aún no está listo
+                }
+            };
+            startStream();
+        });
+
+        // LLAMAR A OTROS
+        socketRef.current.on('user-connected', userId => {
+            console.log('Nuevo usuario detectado, llamando a:', userId);
+            const tryCall = () => {
+                if(myStreamRef.current) {
+                    const call = peerRef.current?.call(userId, myStreamRef.current);
+                    call?.on('stream', remoteStream => {
+                        setIsConnected(true);
+                        if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream;
+                    });
+                } else {
+                    setTimeout(tryCall, 500);
+                }
+            };
+            tryCall();
         });
 
         // Timer
         const interval = setInterval(() => {
-           setTiempoLlamada(prev => {
-               const [mins, secs] = prev.split(':').map(Number);
-               let newSecs = secs + 1;
-               let newMins = mins;
-               if(newSecs === 60) { newMins++; newSecs = 0; }
-               return `${newMins.toString().padStart(2, '0')}:${newSecs.toString().padStart(2, '0')}`;
-           });
+            setTiempoLlamada(prev => {
+                const [m, s] = prev.split(':').map(Number);
+                const total = m * 60 + s + 1;
+                return `${Math.floor(total/60).toString().padStart(2,'0')}:${(total%60).toString().padStart(2,'0')}`;
+            });
         }, 1000);
 
         return () => {
             clearInterval(interval);
-            myStreamRef.current?.getTracks().forEach(track => track.stop());
+            myStreamRef.current?.getTracks().forEach(t => t.stop());
             socketRef.current?.disconnect();
             peerRef.current?.destroy();
         };
-    }, []);
+    }, [roomId]);
 
     const toggleMic = () => {
-        const audioTrack = myStreamRef.current?.getAudioTracks()[0];
-        if (audioTrack) {
-            audioTrack.enabled = !audioTrack.enabled;
-            setMicrofonoActivo(audioTrack.enabled);
-        }
+        const t = myStreamRef.current?.getAudioTracks()[0];
+        if (t) { t.enabled = !t.enabled; setMicrofonoActivo(t.enabled); }
     };
 
     const toggleVideo = () => {
-        const videoTrack = myStreamRef.current?.getVideoTracks()[0];
-        if (videoTrack) {
-            videoTrack.enabled = !videoTrack.enabled;
-            setCamaraActiva(videoTrack.enabled);
-        }
+        const t = myStreamRef.current?.getVideoTracks()[0];
+        if (t) { t.enabled = !t.enabled; setCamaraActiva(t.enabled); }
     };
 
     const finalizarLlamada = () => {
-        myStreamRef.current?.getTracks().forEach(track => track.stop());
+        myStreamRef.current?.getTracks().forEach(t => t.stop());
         socketRef.current?.disconnect();
         navigate(-1);
     };
@@ -169,240 +161,67 @@ export default function Videollamada() {
     const handleSaveRecord = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!appointment) return;
-        
         setIsSaving(true);
         try {
             const token = localStorage.getItem('medicampo_token');
             const res = await fetch(`${API_URL}/api/clinical/${appointment.id}`, {
                 method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify(formData)
             });
-            
-            if (res.ok) {
-                alert('✓ Ficha clínica guardada exitosamente. Finalizando consulta...');
-                finalizarLlamada();
-            } else {
-                alert('Error al guardar la ficha');
-            }
-        } catch (error) {
-            alert('Error de conexión');
-        } finally {
-            setIsSaving(false);
-        }
+            if (res.ok) { alert('✓ Ficha clínica guardada.'); finalizarLlamada(); }
+        } catch (error) { alert('Error de conexión'); } finally { setIsSaving(false); }
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black p-4 sm:p-6 lg:px-8 flex flex-col justify-center animate-in fade-in duration-500">
-            <div className="max-w-7xl mx-auto w-full">
-                <div className="bg-gray-800/80 backdrop-blur-xl border border-gray-700 rounded-3xl shadow-2xl overflow-hidden ring-1 ring-white/10">
-                    
-                    <div className="bg-gradient-to-r from-emerald-600 to-emerald-500 text-white px-6 py-4 flex items-center justify-between shadow-md z-10 relative">
-                        <div className="flex items-center space-x-3">
-                            <div className="p-2 bg-white/20 rounded-lg">
-                                <Shield size={20} className="text-white" />
+        <div className="min-h-screen bg-black p-4 flex flex-col justify-center">
+            <div className="max-w-7xl mx-auto w-full bg-gray-900 rounded-[2rem] overflow-hidden border border-gray-800 shadow-2xl">
+                <div className="bg-emerald-600 px-6 py-3 flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                        <Shield className="text-white w-5 h-5" />
+                        <span className="text-white font-bold">Consulta Segura (PeerServer Pro)</span>
+                    </div>
+                    <div className="bg-black/20 px-4 py-1 rounded-full text-white font-mono">{tiempoLlamada}</div>
+                </div>
+
+                <div className="grid lg:grid-cols-4 gap-0">
+                    <div className="lg:col-span-3 relative bg-black aspect-video flex items-center justify-center">
+                        <video ref={remoteVideoRef} autoPlay playsInline className={`w-full h-full object-cover transition-opacity duration-1000 ${isConnected ? 'opacity-100' : 'opacity-0'}`} />
+                        {!isConnected && (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6">
+                                <Loader2 className="w-12 h-12 text-emerald-500 animate-spin mb-4" />
+                                <h3 className="text-xl font-bold text-white">Sincronizando Conexión...</h3>
+                                <p className="text-gray-500 text-sm mt-2 max-w-xs">Optimizando túnel WebRTC a través de PeerServer privado. Espere un momento.</p>
                             </div>
-                            <div>
-                                <h2 className="font-semibold text-lg leading-tight">Teleconsulta Encriptada</h2>
-                                <p className="text-emerald-100 text-xs">P2P PeerJS WebRTC Connection</p>
-                            </div>
+                        )}
+                        <div className="absolute bottom-6 right-6 w-32 sm:w-48 aspect-video bg-gray-800 rounded-xl overflow-hidden border-2 border-emerald-500/30">
+                            <video ref={localVideoRef} autoPlay playsInline muted className={`w-full h-full object-cover transform scale-x-[-1] ${camaraActiva ? 'opacity-100' : 'opacity-0'}`} />
                         </div>
-                        <div className="flex items-center space-x-2 bg-black/20 px-4 py-2 rounded-full font-mono font-medium">
-                            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                            <span>{tiempoLlamada}</span>
+                        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-4 bg-gray-900/80 backdrop-blur-md p-4 rounded-full border border-gray-700">
+                            <button onClick={toggleMic} className={`p-3 rounded-full ${microfonoActivo ? 'bg-gray-700 text-white' : 'bg-red-500 text-white'}`}><Mic size={20} /></button>
+                            <button onClick={toggleVideo} className={`p-3 rounded-full ${camaraActiva ? 'bg-gray-700 text-white' : 'bg-red-500 text-white'}`}><VideoIcon size={20} /></button>
+                            <button onClick={finalizarLlamada} className="p-3 bg-red-600 text-white rounded-full hover:bg-red-700"><PhoneOff size={20} /></button>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-1 p-1 bg-gray-900">
-                        {/* Remote Video Area */}
-                        <div className="lg:col-span-3 relative bg-black aspect-video rounded-2xl overflow-hidden group">
-                           
-                           {/* Video Remoto */}
-                           <video 
-                             ref={remoteVideoRef} 
-                             autoPlay 
-                             playsInline 
-                             className={`w-full h-full object-cover transition-opacity duration-700 ${isConnected ? 'opacity-100' : 'opacity-0'}`} 
-                           />
-
-                           {/* Loader if not connected */}
-                           {!isConnected && (
-                               <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
-                                   <div className="relative">
-                                     <div className="w-24 h-24 border-4 border-gray-700 rounded-full animate-spin"></div>
-                                     <div className="w-24 h-24 border-4 border-emerald-500 rounded-full animate-spin absolute inset-0 border-t-transparent border-l-transparent"></div>
-                                     <Loader2 className="absolute inset-0 m-auto w-8 h-8 text-emerald-400 animate-pulse" />
-                                   </div>
-                                   <h3 className="mt-6 text-xl font-medium text-gray-300">
-                                       {user?.role === 'PATIENT' ? 'Sala de Espera' : 'Esperando Conexión...'}
-                                   </h3>
-                                   <p className="text-gray-500 mt-2 text-sm text-center max-w-sm">
-                                       {user?.role === 'PATIENT' 
-                                          ? 'Aguarde en línea. El profesional médico aceptará la llamada pronto.' 
-                                          : 'La sala ha sido creada exitosamente. Esperando ingreso del paciente.'}
-                                   </p>
-                               </div>
-                           )}
-
-                           {/* PiP Local Video */}
-                           <div className="absolute bottom-6 right-6 w-32 sm:w-48 aspect-video bg-gray-800 rounded-xl overflow-hidden shadow-2xl border-2 border-gray-700/50 hover:border-emerald-500/50 transition-colors z-20">
-                               <video 
-                                 ref={localVideoRef} 
-                                 autoPlay 
-                                 playsInline 
-                                 muted 
-                                 className={`w-full h-full object-cover transform scale-x-[-1] transition-opacity duration-300 ${camaraActiva ? 'opacity-100' : 'opacity-0'}`} 
-                               />
-                               {!camaraActiva && (
-                                  <div className="absolute inset-0 flex items-center justify-center bg-gray-900 text-gray-400">
-                                      <VideoOff size={32} />
-                                  </div>
-                               )}
-                               <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded-md text-[10px] text-white font-medium flex items-center gap-1">
-                                    Yo {user?.role === 'DOCTOR' ? '(Médico)' : ''}
-                               </div>
-                           </div>
-                           
-                           {/* Controles Flotantes */}
-                           <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex justify-center items-center space-x-4 bg-gray-900/60 backdrop-blur-xl px-8 py-4 rounded-full border border-gray-700/50 shadow-2xl opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300 transform translate-y-4 sm:group-hover:translate-y-0 z-30">
-                                <button
-                                    onClick={toggleMic}
-                                    className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-all ${
-                                        microfonoActivo
-                                            ? 'bg-gray-700/80 text-white hover:bg-gray-600'
-                                            : 'bg-red-500 text-white shadow-lg shadow-red-500/30 ring-2 ring-red-500/50'
-                                    }`}
-                                >
-                                    {microfonoActivo ? <Mic size={24} /> : <MicOff size={24} />}
-                                </button>
-
-                                <button
-                                    onClick={toggleVideo}
-                                    className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-all ${
-                                        camaraActiva
-                                            ? 'bg-gray-700/80 text-white hover:bg-gray-600'
-                                            : 'bg-red-500 text-white shadow-lg shadow-red-500/30 ring-2 ring-red-500/50'
-                                    }`}
-                                >
-                                    {camaraActiva ? <VideoIcon size={24} /> : <VideoOff size={24} />}
-                                </button>
-
-                                <button
-                                    onClick={finalizarLlamada}
-                                    className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-red-600 text-white flex items-center justify-center hover:bg-red-500 shadow-lg shadow-red-600/30 transition-all hover:scale-105 ml-4"
-                                >
-                                    <PhoneOff size={28} />
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Detalles Panel Right */}
-                        <div className="lg:col-span-1 bg-gray-800 rounded-2xl p-5 border border-gray-700/50 ml-1 overflow-y-auto max-h-[calc(100vh-120px)]">
-                            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                                <Shield className="text-emerald-400" />
-                                {user?.role === 'DOCTOR' ? 'Panel de Diagnóstico' : 'Detalles Médicos'}
-                            </h3>
-
-                            {user?.role === 'DOCTOR' ? (
-                                <form onSubmit={handleSaveRecord} className="space-y-4">
-                                    <div className="bg-gray-900/50 rounded-xl p-3 border border-gray-700">
-                                        <p className="text-xs text-gray-400 uppercase mb-1">Paciente</p>
-                                        <p className="text-sm font-semibold text-white">{appointment?.patient.name || 'Cargando...'}</p>
-                                    </div>
-
-                                    <div>
-                                        <label className="text-xs text-gray-400 uppercase">Síntomas Reportados</label>
-                                        <textarea 
-                                            value={formData.symptoms}
-                                            onChange={e => setFormData({...formData, symptoms: e.target.value})}
-                                            className="w-full mt-1 bg-gray-900 border border-gray-700 rounded-lg p-2 text-sm text-white focus:ring-1 focus:ring-emerald-500" 
-                                            rows={2}
-                                            placeholder="..."
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="text-xs text-gray-400 uppercase">Diagnóstico Médico</label>
-                                        <textarea 
-                                            value={formData.diagnosis}
-                                            onChange={e => setFormData({...formData, diagnosis: e.target.value})}
-                                            className="w-full mt-1 bg-gray-900 border border-gray-700 rounded-lg p-2 text-sm text-white focus:ring-1 focus:ring-emerald-500" 
-                                            rows={2}
-                                            placeholder="..."
-                                            required
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="text-xs text-gray-400 uppercase">Receta / Prescripción</label>
-                                        <textarea 
-                                            value={formData.prescription}
-                                            onChange={e => setFormData({...formData, prescription: e.target.value})}
-                                            className="w-full mt-1 bg-gray-900 border border-gray-700 rounded-lg p-2 text-sm text-white focus:ring-1 focus:ring-emerald-500" 
-                                            rows={3}
-                                            placeholder="Medicamentos e indicaciones..."
-                                        />
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div>
-                                            <label className="text-[10px] text-gray-400 uppercase">Peso (kg)</label>
-                                            <input 
-                                                type="text" 
-                                                value={formData.weight}
-                                                onChange={e => setFormData({...formData, weight: e.target.value})}
-                                                className="w-full bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-xs text-white" 
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="text-[10px] text-gray-400 uppercase">Presión Art.</label>
-                                            <input 
-                                                type="text" 
-                                                value={formData.bloodPressure}
-                                                onChange={e => setFormData({...formData, bloodPressure: e.target.value})}
-                                                className="w-full bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-xs text-white" 
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <button 
-                                        type="submit"
-                                        disabled={isSaving}
-                                        className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 mt-4"
-                                    >
-                                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                                        Guardar y Finalizar
-                                    </button>
-                                </form>
-                            ) : (
-                                <div className="space-y-4">
-                                    <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700">
-                                        <p className="text-xs text-gray-400 uppercase mb-1">Médico Atendiendo</p>
-                                        <p className="text-sm font-semibold text-gray-200">{appointment?.doctor.name || 'Cargando...'}</p>
-                                        <p className="text-xs text-emerald-500 mt-1">{appointment?.doctor.specialty?.name || 'Medicina General'}</p>
-                                    </div>
-
-                                    <div className="bg-emerald-900/20 border border-emerald-500/30 rounded-xl p-4 mt-6">
-                                        <p className="text-xs text-emerald-100 leading-relaxed uppercase font-bold mb-2">Información de Seguridad</p>
-                                        <p className="text-xs text-emerald-100 leading-relaxed">
-                                            Tu privacidad es prioridad. Los diagnósticos se almacenan bajo cifrado una vez que el médico finaliza la tanda del historial clínico.
-                                        </p>
-                                    </div>
-
-                                    <div className="pt-4">
-                                        <button 
-                                            onClick={finalizarLlamada}
-                                            className="w-full py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-xl text-sm transition-all"
-                                        >
-                                            Salir de la Sala
-                                        </button>
-                                    </div>
+                    <div className="lg:col-span-1 bg-gray-800 p-6 overflow-y-auto max-h-[80vh]">
+                        <h3 className="text-white font-bold mb-6 flex items-center gap-2 border-b border-gray-700 pb-2"><Stethoscope className="text-emerald-400" /> {user?.role === 'DOCTOR' ? 'Diagnóstico' : 'Detalles'}</h3>
+                        {user?.role === 'DOCTOR' ? (
+                            <form onSubmit={handleSaveRecord} className="space-y-4">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-gray-400 font-bold uppercase">Paciente</label>
+                                    <p className="text-white font-bold">{appointment?.patient.name}</p>
                                 </div>
-                            )}
-                        </div>
+                                <div><label className="text-[10px] text-gray-400 font-bold uppercase">Diagnóstico</label><textarea required value={formData.diagnosis} onChange={e => setFormData({...formData, diagnosis: e.target.value})} className="w-full bg-gray-900 border-gray-700 rounded-xl p-3 text-sm text-white" rows={4} /></div>
+                                <div><label className="text-[10px] text-gray-400 font-bold uppercase">Prescripción</label><textarea value={formData.prescription} onChange={e => setFormData({...formData, prescription: e.target.value})} className="w-full bg-gray-900 border-gray-700 rounded-xl p-3 text-sm text-white" rows={4} /></div>
+                                <button type="submit" disabled={isSaving} className="w-full bg-emerald-600 py-4 rounded-2xl text-white font-bold hover:bg-emerald-500 transition-all flex items-center justify-center gap-2">{isSaving ? <Loader2 className="animate-spin" /> : <Save size={18} />} Guardar Ficha</button>
+                            </form>
+                        ) : (
+                            <div className="text-gray-300 space-y-4">
+                                <p className="text-sm">Médico: <span className="text-white font-bold">{appointment?.doctor.name}</span></p>
+                                <div className="p-4 bg-emerald-900/20 border border-emerald-800 rounded-2xl text-xs leading-relaxed">Su consulta está siendo procesada de forma segura a través de nuestro servidor de señalización privado.</div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

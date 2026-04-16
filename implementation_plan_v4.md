@@ -6,11 +6,16 @@
 
 ## Cambios Propuestos
 
-### 1. Dashboard Médico: Gestión y Visibilidad
-- **[MODIFICAR] `DashboardMedico.tsx`**:
-    - **Nueva Sección**: "Próximas Citas Confirmadas" para mostrar las citas que ya fueron aceptadas pero son para días futuros.
-    - **Redirección Directa**: En `handleStatusUpdate`, si la cita que se acaba de aceptar es para **hoy**, el sistema preguntará o redirigirá automáticamente al médico a la sala de video.
-    - **Mejora de Filtros**: Ajustar la lógica para que ninguna cita aceptada quede "en el limbo".
+### 1. Dashboard Médico: Gestión y Visibilidad Simétrica
+- **[MODIFICAR] `DashboardMedico.tsx`**: 
+    - **Nueva Sección**: "Próximas Citas Confirmadas" para evitar que las citas aceptadas desaparezcan del radar del médico.
+    - **Garantía de Acceso**: Asegurar que el botón "Iniciar Consulta" aparezca en el mismo instante en que la cita es confirmada, igual que le aparece al paciente.
+    - **Redirección Directa**: Si la cita es para hoy, ofrecer entrada inmediata al médico tras aceptar.
+
+### 2. Estabilidad de Conexión Total (WebRTC)
+- **[MODIFICAR] `Videollamada.tsx`**: 
+    - **Sincronización de PeerID**: Reforzar el intercambio de IDs por el socket para que, sin importar quién entre primero (médico o paciente), la llamada se inicie automáticamente y de forma estable.
+    - **Reconexión Automática**: Implementar lógica para reintentar la conexión si falla el primer intento P2P.
 
 ### 2. Dashboard Paciente: Claridad en la Espera
 - **[MODIFICAR] `DashboardPaciente.tsx`**:

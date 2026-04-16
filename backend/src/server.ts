@@ -10,10 +10,19 @@ import jwt from 'jsonwebtoken';
 import authRoutes from './routes/authRoutes';
 import appointmentRoutes from './routes/appointmentRoutes';
 import clinicalRoutes from './routes/clinicalRoutes';
+import { ExpressPeerServer } from 'peer';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 const httpServer = createServer(app);
+
+// Configuración del servidor PeerJS propio
+const peerServer = ExpressPeerServer(httpServer, {
+  debug: true,
+  path: '/'
+});
+
+app.use('/peerjs', peerServer);
 const JWT_SECRET = process.env.JWT_SECRET || 'supersafesecretkey_change_in_production';
 
 app.use(cors());
