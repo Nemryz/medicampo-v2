@@ -47,3 +47,7 @@ Pasos para efectuar una llamada de prueba:
 3. El medico debe aceptar la solicitud pendiente en su panel de control.
 4. Una vez aceptada, ambos usuarios veran el boton para entrar a la sala.
 5. Iniciar la videollamada y completar el diagnostico medico.
+
+Nota de parches y estabilidad
+
+Se ha aplicado un parche de emergencia para solucionar el error 404 al recargar paginas en el servidor de produccion. El sistema ahora utiliza HashRouter lo que garantiza que las rutas como salas de video o historial siempre carguen correctamente. Tambien se reforzo la conectividad de PeerJS con servidores STUN adicionales para asegurar la conexion entre diferentes dispositivos.
