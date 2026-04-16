@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
-import jwt from 'jwt-simple';
+import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -61,12 +61,10 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     const payload = {
       sub: user.id,
       role: user.role,
-      name: user.name,
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24) // 1 día
+      name: user.name
     };
 
-    const token = jwt.encode(payload, JWT_SECRET);
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
 
     res.json({ token, user: { id: user.id, name: user.name, role: user.role, email: user.email } });
   } catch (error) {

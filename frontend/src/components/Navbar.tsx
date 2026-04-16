@@ -1,13 +1,19 @@
-import { Video, FileText } from 'lucide-react';
+import { Video, FileText, CalendarPlus, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface NavbarProps {
-    vista: 'videollamada' | 'historial';
-    onCambiarVista: (vista: 'videollamada' | 'historial') => void;
     nombreUsuario: string;
     tipoUsuario: 'paciente' | 'medico';
 }
 
-export default function Navbar({ vista, onCambiarVista, nombreUsuario, tipoUsuario }: NavbarProps) {
+export default function Navbar({ nombreUsuario, tipoUsuario }: NavbarProps) {
+    const { logout } = useAuth();
+    const navigate = useNavigate();
+    const location = useLocation();
+    
+    // Check active path for styling
+    const isActive = (path: string) => location.pathname === path;
     return (
         <nav className="bg-white shadow-md">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -21,20 +27,33 @@ export default function Navbar({ vista, onCambiarVista, nombreUsuario, tipoUsuar
 
                     <div className="flex items-center space-x-6">
                         <button
-                            onClick={() => onCambiarVista('videollamada')}
-                            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${vista === 'videollamada'
+                            onClick={() => navigate('/room/test-call')}
+                            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${isActive('/room/test-call')
                                 ? 'bg-blue-100 text-blue-700'
                                 : 'text-gray-600 hover:bg-gray-100'
                                 }`}
                         >
                             <Video size={20} />
-                            <span>Consulta</span>
+                            <span>Llamada Prueba</span>
                         </button>
 
+                        {tipoUsuario === 'paciente' && (
+                            <button
+                                onClick={() => navigate('/reserva')}
+                                className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${isActive('/reserva')
+                                    ? 'bg-blue-100 text-blue-700'
+                                    : 'text-gray-600 hover:bg-gray-100'
+                                    }`}
+                            >
+                                <CalendarPlus size={20} />
+                                <span>Agendar Cita</span>
+                            </button>
+                        )}
+                        
                         {tipoUsuario === 'medico' && (
                             <button
-                                onClick={() => onCambiarVista('historial')}
-                                className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${vista === 'historial'
+                                onClick={() => navigate('/historial')}
+                                className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${isActive('/historial')
                                     ? 'bg-blue-100 text-blue-700'
                                     : 'text-gray-600 hover:bg-gray-100'
                                     }`}
@@ -45,12 +64,16 @@ export default function Navbar({ vista, onCambiarVista, nombreUsuario, tipoUsuar
                         )}
 
                         <div className="flex items-center space-x-2 pl-4 border-l border-gray-300">
-                            <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                            <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center shadow-md">
                                 <span className="text-white text-sm font-semibold">
-                                    {nombreUsuario.split(' ')[0][0]}
+                                    {nombreUsuario ? nombreUsuario.split(' ')[0][0] : 'U'}
                                 </span>
                             </div>
                             <span className="text-sm font-medium text-gray-700">{nombreUsuario}</span>
+                            
+                            <button onClick={logout} className="ml-4 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors">
+                                <LogOut size={18} />
+                            </button>
                         </div>
                     </div>
                 </div>
