@@ -1,0 +1,61 @@
+# Plan de Implementación: Migración a LiveKit SFU
+
+Este plan detalla la transición de una arquitectura P2P (PeerJS) a una arquitectura SFU (LiveKit) para garantizar llamadas de alta fidelidad y estabilidad en MediCampo.
+
+## User Review Required
+
+> [!IMPORTANT]
+> **Infraestructura**: Se requiere la creación de un nuevo Droplet en DigitalOcean dedicado exclusivamente a LiveKit. Esto evita que el tráfico de video sature la API principal.
+> **Dominios**: Es necesario configurar un subdominio (ej. `rtc.medicampo.com`) apuntando a la IP del nuevo Droplet.
+
+## Proposed Changes
+
+---
+
+### Infraestructura (DigitalOcean)
+
+#### [NEW] Droplet LiveKit
+*   **Imagen**: Docker 24.x on Ubuntu 22.04.
+*   **Specs**: 2 vCPUs, 4GB RAM (Recomendado para producción).
+*   **Configuración**:
+    *   Uso de `livekit-deploy` para generar la configuración de Docker Compose.
+    *   Caddy/Nginx para terminación SSL automática via Let's Encrypt.
+
+---
+
+### Backend (Express)
+
+#### [MODIFY] [server.ts](file:///c:/Users/ignac/Downloads/mediCampo-v2/backend/src/server.ts)
+*   Eliminar dependencias de `peer` y `ExpressPeerServer`.
+*   Implementar el generador de tokens usando `livekit-server-sdk`.
+
+#### [NEW] [livekitController.ts](file:///c:/Users/ignac/Downloads/mediCampo-v2/backend/src/controllers/livekitController.ts)
+*   Endpoint `GET /api/livekit/token`:
+    *   Generar `AccessToken` vinculando el `userId` y el `roomId` (Appointment ID).
+    *   Asignar permisos de `roomJoin` y `roomAdmin` (para el médico si es necesario).
+
+---
+
+### Frontend (React/Vite)
+
+#### [MODIFY] [Videollamada.tsx](file:///c:/Users/ignac/Downloads/mediCampo-v2/frontend/src/components/Videollamada.tsx)
+*   Reemplazar lógica manual de `MediaStream` y `Peer` por el hook `useToken` y el componente `<LiveKitRoom />`.
+*   Integrar componentes de UI oficiales:
+    *   `<VideoConference />` para una experiencia out-of-the-box.
+    *   O componentes personalizados (`<ParticipantTile />`, `<ControlBar />`) para mantener el diseño premium actual.
+
+#### [NEW] [ChatLlamada.tsx](file:///c:/Users/ignac/Downloads/mediCampo-v2/frontend/src/components/ChatLlamada.tsx)
+*   Implementar el chat de texto usando `useChat` de LiveKit, permitiendo comunicación en tiempo real sin salir de la videollamada.
+
+---
+
+## Verification Plan
+
+### Automated Tests
+*   **Token Validation**: Probar que el endpoint genera tokens válidos usando el CLI de LiveKit (`livekit-cli`).
+*   **Connection Test**: Simular múltiples participantes en una sala para medir el impacto en la CPU del Droplet.
+
+### Manual Verification
+1.  **Doctor-Patient Flow**: Iniciar una cita desde el panel de médico y verificar que el paciente recibe la invitación y se conecta instantáneamente.
+2.  **Hardware Toggle**: Probar el encendido/apagado de cámara y micro en caliente.
+3.  **Chat Latency**: Enviar mensajes de texto y verificar que la entrega sea <100ms.
