@@ -26,15 +26,27 @@ import { ChatConsulta } from './ChatConsulta';
  * Mover esta lógica aquí soluciona el error "No room provided" y permite que el video cargue.
  */
 const EscenarioVideo = () => {
-    // Obtenemos los tracks de video para la grilla manual de forma simplificada
-    const tracks = useTracks(
-        [Track.Source.Camera, Track.Source.ScreenShare],
-        { onlySubscribed: false },
-    );
+    // Protección de seguridad: Si intentamos usar tracks fuera de contexto, 
+    // mostramos el cargador en lugar de lanzar un error fatal.
+    let tracks;
+    try {
+        tracks = useTracks(
+            [Track.Source.Camera, Track.Source.ScreenShare],
+            { onlySubscribed: false },
+        );
+    } catch (error) {
+        console.warn("LiveKit context not ready yet...");
+        return (
+            <div className="flex flex-col items-center gap-4">
+                <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
+                <p className="text-gray-500 text-sm animate-pulse">Iniciando sala segura...</p>
+            </div>
+        );
+    }
 
     return (
         <div className="flex-1 flex items-center justify-center bg-black overflow-hidden relative">
-            {tracks.length > 0 ? (
+            {tracks && tracks.length > 0 ? (
                 <GridLayout tracks={tracks} className="w-full h-full">
                     <ParticipantTile />
                 </GridLayout>
