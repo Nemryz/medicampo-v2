@@ -15,7 +15,7 @@ import { Track } from 'livekit-client';
 import '@livekit/components-styles';
 
 import { useAuth } from '../context/AuthContext';
-import { API_URL, apiFetch } from '../lib/api';
+import { apiFetch } from '../lib/api';
 import { ChatConsulta } from './ChatConsulta';
 
 /**
