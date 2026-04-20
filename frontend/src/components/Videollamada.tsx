@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import {
-    PhoneOff, Shield, Clock, Loader2, Save, Stethoscope, MessageSquare
+    PhoneOff, Shield, Clock, Loader2, Save, Stethoscope, MessageSquare, Mic, MicOff, Video, VideoOff
 } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     LiveKitRoom,
     RoomAudioRenderer,
-    ControlBar,
     GridLayout,
     ParticipantTile,
     useTracks,
+    useLocalParticipant,
 } from '@livekit/components-react';
 import { Track } from 'livekit-client';
 import '@livekit/components-styles';
@@ -19,15 +19,51 @@ import { API_URL, apiFetch } from '../lib/api';
 import { ChatConsulta } from './ChatConsulta';
 
 /**
+ * ControlesPersonalizados
+ * Gestiona los botones de Micrófono y Cámara con colores dinámicos.
+ * Rojo = Apagado | Gris = Encendido
+ */
+const ControlesPersonalizados = ({ finalizarLlamada }: { finalizarLlamada: () => void }) => {
+    const { isMicrophoneEnabled, isCameraEnabled, localParticipant } = useLocalParticipant();
+
+    const toggleMic = () => localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
+    const toggleCamera = () => localParticipant.setCameraEnabled(!isCameraEnabled);
+
+    return (
+        <div className="bg-gray-900/90 backdrop-blur-xl p-4 rounded-3xl border border-gray-700 shadow-2xl flex gap-4 items-center justify-center">
+            {/* Botón de Micrófono */}
+            <button 
+                onClick={toggleMic}
+                className={`p-3 rounded-2xl transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2 ${isMicrophoneEnabled ? 'bg-gray-800 text-white' : 'bg-red-600 text-white shadow-lg shadow-red-900/40'}`}
+                title={isMicrophoneEnabled ? "Silenciar Micrófono" : "Activar Micrófono"}
+            >
+                {isMicrophoneEnabled ? <Mic size={20} /> : <MicOff size={20} />}
+                <span className="text-[10px] font-bold uppercase">{isMicrophoneEnabled ? 'On' : 'Off'}</span>
+            </button>
+
+            {/* Botón de Cámara */}
+            <button 
+                onClick={toggleCamera}
+                className={`p-3 rounded-2xl transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2 ${isCameraEnabled ? 'bg-gray-800 text-white' : 'bg-red-600 text-white shadow-lg shadow-red-900/40'}`}
+                title={isCameraEnabled ? "Apagar Cámara" : "Encender Cámara"}
+            >
+                {isCameraEnabled ? <Video size={20} /> : <VideoOff size={20} />}
+                <span className="text-[10px] font-bold uppercase">{isCameraEnabled ? 'On' : 'Off'}</span>
+            </button>
+
+            <div className="w-[1px] h-8 bg-gray-700 mx-2" />
+            
+            <button onClick={finalizarLlamada} className="p-3 bg-red-600 text-white rounded-2xl hover:bg-red-500 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-red-900/20" title="Finalizar consulta">
+                <PhoneOff size={22} />
+            </button>
+        </div>
+    );
+};
+
+/**
  * EscenarioVideo (Sub-componente Modular)
- * 
- * POR QUÉ ESTÁ AQUÍ:
- * LiveKit requiere que hooks como 'useTracks' se usen DENTRO del contexto de <LiveKitRoom>.
- * Mover esta lógica aquí soluciona el error "No room provided" y permite que el video cargue.
  */
 const EscenarioVideo = () => {
-    // Protección de seguridad: Si intentamos usar tracks fuera de contexto, 
-    // mostramos el cargador en lugar de lanzar un error fatal.
     let tracks;
     try {
         tracks = useTracks(
@@ -76,7 +112,6 @@ export default function Videollamada() {
 
     const [livekitToken, setLivekitToken] = useState<string>("");
 
-    // Carga del token de LiveKit con seguridad JWT
     useEffect(() => {
         if (!roomId || !user) return;
 
@@ -100,7 +135,6 @@ export default function Videollamada() {
     useEffect(() => {
         if (!roomId) return;
 
-        // MODO SANDBOX: Si la sala es de prueba, usamos datos simulados
         if (roomId === 'test-room-livekit') {
             setAppointment({
                 id: 0,
@@ -110,7 +144,6 @@ export default function Videollamada() {
             return;
         }
 
-        // MODO REAL: Obtenemos la cita de la API
         apiFetch(`/api/appointments/room/${roomId}`)
             .then(r => r.json())
             .then(data => {
@@ -126,11 +159,6 @@ export default function Videollamada() {
             })
             .catch(err => {
                 console.error('Error cargando cita:', err);
-                setAppointment({
-                    id: 0,
-                    patient: { name: 'Error de Red', rut: '---' },
-                    doctor: { name: 'Reintentando...', specialty: { name: '---' } }
-                });
             });
 
         const interval = setInterval(() => {
@@ -181,8 +209,7 @@ export default function Videollamada() {
     return (
         <div className="min-h-screen bg-black p-4 flex flex-col justify-center font-sans">
             <div className="max-w-7xl mx-auto w-full bg-gray-900 rounded-[2.5rem] overflow-hidden border border-gray-800 shadow-2xl flex flex-col h-[90vh]">
-
-                {/* Header Superior */}
+                
                 <div className="bg-emerald-600 px-8 py-4 flex justify-between items-center shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="bg-white/20 p-2 rounded-xl"><Shield className="text-white w-5 h-5" /></div>
@@ -201,30 +228,23 @@ export default function Videollamada() {
                     <div className="flex-1 relative bg-black flex overflow-hidden">
                         <div className={`flex-1 transition-all duration-500 relative ${showChat ? 'lg:mr-[320px]' : ''}`}>
                             <LiveKitRoom
-                                video={true}
+                                video={false}
                                 audio={true}
                                 token={livekitToken}
-                                serverUrl={import.meta.env.VITE_LIVEKIT_URL?.startsWith('http')
-                                    ? import.meta.env.VITE_LIVEKIT_URL.replace('http', 'ws')
+                                serverUrl={import.meta.env.VITE_LIVEKIT_URL?.startsWith('http') 
+                                    ? import.meta.env.VITE_LIVEKIT_URL.replace('http', 'ws') 
                                     : import.meta.env.VITE_LIVEKIT_URL}
                                 onDisconnected={() => navigate(-1)}
-                                onError={(error) => {
-                                    // Cambiamos alert por console para evitar bloqueos
-                                    console.error('LiveKit Room Error:', error);
-                                }}
+                                onError={(error) => console.error('LiveKit Room Error:', error)}
                                 className="h-full flex flex-col relative"
                             >
                                 <EscenarioVideo />
                                 <RoomAudioRenderer />
-
+                                
                                 <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50 w-full max-w-fit px-4">
-                                    <div className="bg-gray-900/90 backdrop-blur-xl p-4 rounded-3xl border border-gray-700 shadow-2xl flex gap-6 items-center justify-center">
-                                        {/* Forzamos los controles básicos */}
-                                        <ControlBar variation="minimal" controls={{ leave: false, microphone: true, camera: true, screenShare: false }} />
-                                        <div className="w-[1px] h-8 bg-gray-700" />
-                                        <button onClick={finalizarLlamada} className="p-3 bg-red-600 text-white rounded-2xl hover:bg-red-500 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-red-900/20" title="Finalizar consulta"><PhoneOff size={22} /></button>
-                                    </div>
+                                    <ControlesPersonalizados finalizarLlamada={finalizarLlamada} />
                                 </div>
+
                                 <div className={`absolute right-0 top-0 bottom-0 w-full lg:w-[320px] bg-gray-900 border-l border-gray-800 transition-transform duration-500 z-40 ${showChat ? 'translate-x-0' : 'translate-x-full'}`}>
                                     {livekitToken && <ChatConsulta />}
                                 </div>
@@ -242,42 +262,25 @@ export default function Videollamada() {
                             <form onSubmit={handleSaveRecord} className="space-y-6">
                                 <div className="bg-gray-900/50 p-4 rounded-2xl border border-gray-800">
                                     <label className="text-[10px] text-gray-500 font-bold uppercase tracking-widest block mb-1">Paciente</label>
-                                    <p className="text-white font-bold text-base">{appointment?.patient.name}</p>
-                                    <p className="text-gray-500 text-xs mt-1">RUT: {appointment?.patient.rut}</p>
+                                    <p className="text-white font-bold text-base">{appointment?.patient?.name || 'Cargando...'}</p>
+                                    <p className="text-gray-500 text-xs mt-1">RUT: {appointment?.patient?.rut || '---'}</p>
                                 </div>
                                 <div className="space-y-4">
-                                    <div>
-                                        <label className="text-[10px] text-gray-400 font-bold uppercase mb-2 block">Diagnóstico del Médico</label>
-                                        <textarea required value={formData.diagnosis} onChange={e => setFormData({ ...formData, diagnosis: e.target.value })} className="w-full bg-gray-900 border-gray-800 rounded-2xl p-4 text-sm text-white focus:ring-2 focus:ring-emerald-500 transition-all placeholder:text-gray-700" rows={5} placeholder="Describa el diagnóstico clínico..." />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] text-gray-400 font-bold uppercase mb-2 block">Prescripción Médica</label>
-                                        <textarea value={formData.prescription} onChange={e => setFormData({ ...formData, prescription: e.target.value })} className="w-full bg-gray-900 border-gray-800 rounded-2xl p-4 text-sm text-white focus:ring-2 focus:ring-emerald-500 transition-all placeholder:text-gray-700" rows={5} placeholder="Medicamentos, dosis y duración..." />
-                                    </div>
+                                    <textarea required value={formData.diagnosis} onChange={e => setFormData({ ...formData, diagnosis: e.target.value })} className="w-full bg-gray-900 border-gray-800 rounded-2xl p-4 text-sm text-white focus:ring-2 focus:ring-emerald-500" rows={5} placeholder="Diagnóstico..." />
+                                    <textarea value={formData.prescription} onChange={e => setFormData({ ...formData, prescription: e.target.value })} className="w-full bg-gray-900 border-gray-800 rounded-2xl p-4 text-sm text-white focus:ring-2 focus:ring-emerald-500" rows={5} placeholder="Prescripción..." />
                                 </div>
-                                <button type="submit" disabled={isSaving} className="w-full bg-emerald-600 py-4 rounded-2xl text-white font-bold hover:bg-emerald-500 transition-all flex items-center justify-center gap-3 shadow-lg shadow-emerald-900/20 active:scale-[0.98]">
+                                <button type="submit" disabled={isSaving} className="w-full bg-emerald-600 py-4 rounded-2xl text-white font-bold hover:bg-emerald-500 transition-all flex items-center justify-center gap-3">
                                     {isSaving ? <Loader2 className="animate-spin" /> : <Save size={18} />}
                                     Finalizar y Guardar
                                 </button>
                             </form>
                         ) : (
-                            <div className="space-y-6">
-                                <div className="bg-emerald-900/10 border border-emerald-800/30 p-6 rounded-[2rem]">
-                                    <div className="flex items-center gap-3 mb-4">
-                                        <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center text-white font-bold">
-                                            {appointment?.doctor?.name?.charAt(0) || 'M'}
-                                        </div>
-                                        <div>
-                                            <p className="text-white font-bold">{appointment?.doctor?.name || 'Médico'}</p>
-                                            <p className="text-emerald-500 text-[10px] font-bold uppercase tracking-tighter">Médico de Cabecera</p>
-                                        </div>
-                                    </div>
-                                    <p className="text-gray-400 text-xs leading-relaxed">Su consulta está siendo procesada a través de un nodo SFU dedicado para garantizar la máxima privacidad y calidad de video.</p>
+                            <div className="space-y-6 text-center">
+                                <div className="w-16 h-16 bg-emerald-600 rounded-full flex items-center justify-center text-white font-bold mx-auto text-xl mb-4">
+                                    {appointment?.doctor?.name?.charAt(0) || 'M'}
                                 </div>
-                                <div className="bg-gray-900/30 p-4 rounded-2xl border border-gray-800">
-                                    <p className="text-[10px] text-gray-500 font-bold uppercase mb-2">Especialidad</p>
-                                    <p className="text-gray-300 text-sm">{appointment?.doctor?.specialty?.name || 'Medicina General'}</p>
-                                </div>
+                                <p className="text-white font-bold text-lg">{appointment?.doctor?.name || 'Médico'}</p>
+                                <p className="text-emerald-500 text-xs font-bold uppercase">{appointment?.doctor?.specialty?.name || 'Consulta General'}</p>
                             </div>
                         )}
                     </div>
