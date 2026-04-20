@@ -56,11 +56,8 @@ export const PreFlightCheck = ({ onReady, userName }: PreFlightProps) => {
 
     useEffect(() => {
         checkDevices();
-        return () => {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-            }
-        };
+        // Nota: No detenemos los tracks aquí para permitir que LiveKit 
+        // tome el control del hardware sin interrupciones bruscas.
     }, []);
 
     return (
