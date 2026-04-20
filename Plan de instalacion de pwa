@@ -1,0 +1,50 @@
+# Plan de Implementación: MediCampo PWA & Diseño Adaptativo
+
+Este plan describe la transición de MediCampo hacia una aplicación web progresiva (PWA) con una arquitectura de diseño flexible que permita iteraciones rápidas de UI/UX sin comprometer la estabilidad técnica alcanzada.
+
+## User Review Required
+
+> [!IMPORTANT]
+> **Permisos de Cámara**: La PWA ayuda a que el sistema operativo "confíe" más en la aplicación, pero la primera activación siempre requerirá una acción clara del usuario.
+> **Iconografía**: Necesitaremos el logo definitivo de MediCampo en alta resolución para generar los iconos de la App.
+
+## Fase 1: Infraestructura PWA (Instalabilidad)
+
+El objetivo es que MediCampo pueda "añadirse a la pantalla de inicio" y comportarse como una App nativa.
+
+### 1. Configuración del Manifiesto (`manifest.json`)
+- Definición de colores de marca (`theme_color`).
+- Modo de visualización `standalone` (elimina la barra de direcciones del navegador).
+- Iconos adaptativos para Android e iOS.
+
+### 2. Service Worker con Vite PWA
+- Instalación de `vite-plugin-pwa`.
+- Estrategia de caché para que la aplicación cargue en < 1 segundo incluso en redes móviles 4G.
+
+## Fase 2: Diseño Adaptativo & "Mobile-First"
+
+Prepararemos el código para que sea "estéticamente actualizable" de forma sencilla.
+
+### 1. Tokens de Diseño (CSS Variables)
+- Centralizar todos los colores, sombras y bordes en variables globales.
+- Esto permitirá cambiar el "look & feel" de toda la app editando un solo archivo CSS.
+
+### 2. Layout Híbrido en Videollamada
+- **Móvil**: Video prioritario en la parte superior, controles flotantes minimalistas, y la ficha médica como un panel deslizable (Drawer) desde la parte inferior.
+- **Desktop**: Mantener la vista de panel lateral actual pero con animaciones de cristal (glassmorphism).
+
+## Fase 3: Sala de Pre-Chequeo Técnico
+
+Evitaremos el error de "Permiso denegado" mediante una fase de preparación.
+
+### 1. `PreFlightCheck.tsx`
+- Una pantalla intermedia donde el médico/paciente ve su propia cámara y prueba su micrófono antes de unirse a la sesión real.
+- Esto fuerza al sistema operativo a otorgar permisos en un entorno controlado.
+
+---
+
+## Verificación
+
+### Pruebas en Dispositivos Reales
+- Validar la instalación del icono en Android (Chrome) e iOS (Safari).
+- Comprobar que la App funciona sin las barras de navegación, ganando un 15% más de espacio visual.

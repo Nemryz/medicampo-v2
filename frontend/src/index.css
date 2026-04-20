@@ -1,3 +1,75 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+/**
+ * SISTEMA DE DISEÑO MEDICAMPO (Design Tokens)
+ * 
+ * DESCRIPCIÓN:
+ * Centralizamos los valores estéticos de la plataforma. Esto permite realizar cambios 
+ * globales de diseño (UI/UX) editando solo este archivo.
+ * 
+ * CÓMO FUNCIONA:
+ * Definimos variables CSS en el selector :root. Estas pueden ser usadas en cualquier
+ * componente mediante la función var(--nombre-variable).
+ * 
+ * CÓMO MODIFICARLO:
+ * - Para cambiar el color principal: Edita '--mc-emerald-primary'.
+ * - Para cambiar el aspecto de los paneles: Edita '--mc-glass-bg'.
+ * - Para ajustar la curvatura de la App: Edita '--mc-radius-xl'.
+ */
+:root {
+  /* Colores de Marca */
+  --mc-emerald-primary: #10b981;
+  --mc-emerald-dark: #059669;
+  --mc-emerald-light: #34d399;
+
+  /* Paleta Dark Mode Premium */
+  --mc-bg-dark: #000000;
+  --mc-bg-surface: #0a0a0a;
+  --mc-bg-panel: #111111;
+
+  /* Glassmorphism (Efectos de cristal) */
+  --mc-glass-bg: rgba(17, 24, 39, 0.7);
+  --mc-glass-border: rgba(255, 255, 255, 0.1);
+  --mc-glass-blur: 16px;
+
+  /* Semántica */
+  --mc-danger: #ef4444;
+  --mc-success: #10b981;
+  --mc-info: #3b82f6;
+
+  /* Bordes y Curvatura */
+  --mc-radius-xl: 1.5rem;
+  --mc-radius-2xl: 2.5rem;
+}
+
+/* Reset y Base */
+body {
+  background-color: var(--mc-bg-dark);
+  color: white;
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Utilidades Globales de MediCampo */
+@layer components {
+  .mc-glass-panel {
+    background: var(--mc-glass-bg);
+    backdrop-filter: blur(var(--mc-glass-blur));
+    border: 1px solid var(--mc-glass-border);
+  }
+
+  .mc-button-primary {
+    background-color: var(--mc-emerald-primary);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .mc-button-primary:hover {
+    background-color: var(--mc-emerald-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.4);
+  }
+}
