@@ -155,7 +155,7 @@ export default function Videollamada() {
     return (
         <div className="min-h-screen bg-black p-4 flex flex-col justify-center font-sans">
             <div className="max-w-7xl mx-auto w-full bg-gray-900 rounded-[2.5rem] overflow-hidden border border-gray-800 shadow-2xl flex flex-col h-[90vh]">
-                
+
                 {/* Header Superior */}
                 <div className="bg-emerald-600 px-8 py-4 flex justify-between items-center shrink-0">
                     <div className="flex items-center gap-3">
@@ -178,16 +178,23 @@ export default function Videollamada() {
                                 video={true}
                                 audio={true}
                                 token={token}
-                                serverUrl={import.meta.env.VITE_LIVEKIT_URL}
+                                serverUrl={import.meta.env.VITE_LIVEKIT_URL?.startsWith('http')
+                                    ? import.meta.env.VITE_LIVEKIT_URL.replace('http', 'ws')
+                                    : import.meta.env.VITE_LIVEKIT_URL}
                                 onDisconnected={() => navigate(-1)}
+                                onError={(error) => {
+                                    console.error('Error de LiveKit:', error);
+                                    alert('Falla de conexión o dispositivos: No se pudo iniciar el video. Verifique los permisos de su cámara o el firewall.');
+                                }}
                                 className="h-full flex flex-col relative"
                             >
                                 <EscenarioVideo />
                                 <RoomAudioRenderer />
-                                
+
                                 <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50 w-full max-w-fit px-4">
                                     <div className="bg-gray-900/90 backdrop-blur-xl p-4 rounded-3xl border border-gray-700 shadow-2xl flex gap-6 items-center justify-center">
-                                        <ControlBar variation="minimal" controls={{ leave: false }} />
+                                        {/* Forzamos los controles básicos */}
+                                        <ControlBar variation="minimal" controls={{ leave: false, microphone: true, camera: true, screenShare: false }} />
                                         <div className="w-[1px] h-8 bg-gray-700" />
                                         <button onClick={finalizarLlamada} className="p-3 bg-red-600 text-white rounded-2xl hover:bg-red-500 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-red-900/20" title="Finalizar consulta"><PhoneOff size={22} /></button>
                                     </div>
@@ -232,17 +239,19 @@ export default function Videollamada() {
                             <div className="space-y-6">
                                 <div className="bg-emerald-900/10 border border-emerald-800/30 p-6 rounded-[2rem]">
                                     <div className="flex items-center gap-3 mb-4">
-                                        <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center text-white font-bold">{appointment?.doctor.name.charAt(0)}</div>
+                                        <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center text-white font-bold">
+                                            {appointment?.doctor?.name?.charAt(0) || 'M'}
+                                        </div>
                                         <div>
-                                            <p className="text-white font-bold">{appointment?.doctor.name}</p>
-                                            <p className="text-emerald-500 text-[10px] font-bold uppercase uppercase tracking-tighter">Médico de Cabecera</p>
+                                            <p className="text-white font-bold">{appointment?.doctor?.name || 'Médico'}</p>
+                                            <p className="text-emerald-500 text-[10px] font-bold uppercase tracking-tighter">Médico de Cabecera</p>
                                         </div>
                                     </div>
                                     <p className="text-gray-400 text-xs leading-relaxed">Su consulta está siendo procesada a través de un nodo SFU dedicado para garantizar la máxima privacidad y calidad de video.</p>
                                 </div>
                                 <div className="bg-gray-900/30 p-4 rounded-2xl border border-gray-800">
                                     <p className="text-[10px] text-gray-500 font-bold uppercase mb-2">Especialidad</p>
-                                    <p className="text-gray-300 text-sm">{appointment?.doctor.specialty?.name || 'Medicina General'}</p>
+                                    <p className="text-gray-300 text-sm">{appointment?.doctor?.specialty?.name || 'Medicina General'}</p>
                                 </div>
                             </div>
                         )}
