@@ -7,7 +7,6 @@ import {
     LiveKitRoom,
     RoomAudioRenderer,
     ControlBar,
-    useToken,
     GridLayout,
     ParticipantTile,
     useTracks,
@@ -63,13 +62,28 @@ export default function Videollamada() {
         symptoms: '', diagnosis: '', prescription: '', weight: '', height: '', bloodPressure: '', temperature: ''
     });
 
-    // Validamos roomId para evitar errores de LiveKit si el parámetro no llega.
-    const token = useToken(`${API_URL}/api/livekit/token`, roomId || 'default-room', {
-        userInfo: {
-            identity: user?.name || 'Usuario',
-            name: user?.name || 'Usuario',
-        },
-    });
+    const [livekitToken, setLivekitToken] = useState<string>("");
+
+    // Carga del token de LiveKit con seguridad JWT
+    useEffect(() => {
+        if (!roomId || !user) return;
+
+        const fetchToken = async () => {
+            try {
+                const resp = await apiFetch(`/api/livekit/token?room=${roomId}&identity=${encodeURIComponent(user.name)}`);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    setLivekitToken(data.token);
+                } else {
+                    console.error('Falla al obtener token de LiveKit:', resp.status);
+                }
+            } catch (err) {
+                console.error('Error de red obteniendo token:', err);
+            }
+        };
+
+        fetchToken();
+    }, [roomId, user]);
 
     useEffect(() => {
         if (!roomId) return;
@@ -142,7 +156,7 @@ export default function Videollamada() {
         }
     };
 
-    if (token === "") {
+    if (livekitToken === "") {
         return (
             <div className="min-h-screen bg-black flex flex-col items-center justify-center">
                 <Loader2 className="w-12 h-12 text-emerald-500 animate-spin mb-4" />
@@ -177,7 +191,7 @@ export default function Videollamada() {
                             <LiveKitRoom
                                 video={true}
                                 audio={true}
-                                token={token}
+                                token={livekitToken}
                                 serverUrl={import.meta.env.VITE_LIVEKIT_URL?.startsWith('http')
                                     ? import.meta.env.VITE_LIVEKIT_URL.replace('http', 'ws')
                                     : import.meta.env.VITE_LIVEKIT_URL}
@@ -203,7 +217,7 @@ export default function Videollamada() {
                         </div>
 
                         <div className={`absolute right-0 top-0 bottom-0 w-full lg:w-[320px] bg-gray-900 border-l border-gray-800 transition-transform duration-500 z-40 ${showChat ? 'translate-x-0' : 'translate-x-full'}`}>
-                            {token && <ChatConsulta />}
+                            {livekitToken && <ChatConsulta />}
                         </div>
                     </div>
 
