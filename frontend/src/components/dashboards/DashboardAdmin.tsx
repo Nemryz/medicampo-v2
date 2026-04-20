@@ -1,5 +1,8 @@
-import { useState, useEffect } from 'react';
-import { Users, Activity, CheckCircle2, Clock, ShieldCheck, AlertTriangle, Trash2, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { 
+  Users, Activity, CheckCircle2, Clock, 
+  ShieldCheck, AlertTriangle, Trash2, Loader2 
+} from 'lucide-react';
 import { API_URL, apiFetch } from '../../lib/api';
 
 interface Stats {
