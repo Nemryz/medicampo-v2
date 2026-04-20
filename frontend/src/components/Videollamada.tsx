@@ -141,6 +141,13 @@ export default function Videollamada() {
     const [livekitToken, setLivekitToken] = useState<string>("");
     const [lastFetchedRoom, setLastFetchedRoom] = useState<string>("");
 
+    // Estabilizamos la URL del servidor para evitar reconexiones
+    const serverUrl = React.useMemo(() => {
+        const url = import.meta.env.VITE_LIVEKIT_URL;
+        if (!url) return "";
+        return url.startsWith('http') ? url.replace('http', 'ws') : url;
+    }, []);
+
     useEffect(() => {
         if (!roomId || !user || roomId === lastFetchedRoom) return;
 
@@ -253,16 +260,14 @@ export default function Videollamada() {
                     </div>
                 </div>
 
-                <div className="flex-1 flex overflow-hidden lg:flex-row flex-col">
-                    <div className="flex-1 relative bg-black flex overflow-hidden">
+                <div className="flex-1 flex overflow-hidden lg:flex-row flex-col relative">
+                    <div className="flex-1 relative bg-black flex overflow-hidden min-h-[40vh] lg:min-h-0">
                         <div className={`flex-1 transition-all duration-500 relative ${showChat ? 'lg:mr-[320px]' : ''}`}>
                             <LiveKitRoom
                                 video={false}
                                 audio={true}
                                 token={livekitToken}
-                                serverUrl={import.meta.env.VITE_LIVEKIT_URL?.startsWith('http') 
-                                    ? import.meta.env.VITE_LIVEKIT_URL.replace('http', 'ws') 
-                                    : import.meta.env.VITE_LIVEKIT_URL}
+                                serverUrl={serverUrl}
                                 onDisconnected={() => navigate(-1)}
                                 onError={(error) => console.error('LiveKit Room Error:', error)}
                                 className="h-full flex flex-col relative"
