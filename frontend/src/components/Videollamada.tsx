@@ -25,19 +25,38 @@ import { ChatConsulta } from './ChatConsulta';
  */
 const ControlesPersonalizados = ({ finalizarLlamada }: { finalizarLlamada: () => void }) => {
     const { isMicrophoneEnabled, isCameraEnabled, localParticipant } = useLocalParticipant();
+    const [isToggling, setIsToggling] = useState(false);
 
-    // Si el participante local no está listo, mostramos un estado de espera
     if (!localParticipant) {
         return (
             <div className="bg-gray-900/90 p-4 rounded-3xl border border-gray-700 flex gap-4 items-center">
                 <Loader2 className="animate-spin text-emerald-500" size={20} />
-                <span className="text-white text-xs font-bold uppercase">Iniciando Controles...</span>
+                <span className="text-white text-xs font-bold uppercase tracking-widest">Iniciando...</span>
             </div>
         );
     }
 
-    const toggleMic = () => localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
-    const toggleCamera = () => localParticipant.setCameraEnabled(!isCameraEnabled);
+    const toggleMic = async () => {
+        try {
+            await localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
+        } catch (e) {
+            console.error("Error al conmutar micrófono:", e);
+        }
+    };
+
+    const toggleCamera = async () => {
+        setIsToggling(true);
+        try {
+            console.log("Intentando activar cámara...");
+            await localParticipant.setCameraEnabled(!isCameraEnabled);
+            console.log("Estado de cámara cambiado a:", !isCameraEnabled);
+        } catch (e) {
+            console.error("Error crítico de cámara:", e);
+            alert("No se pudo acceder a la cámara. Verifique que no esté en uso por otra app y que haya dado permisos en el navegador.");
+        } finally {
+            setIsToggling(false);
+        }
+    };
 
     return (
         <div className="bg-gray-900/95 backdrop-blur-2xl p-4 rounded-3xl border border-gray-600 shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex gap-4 items-center justify-center pointer-events-auto">
@@ -45,7 +64,6 @@ const ControlesPersonalizados = ({ finalizarLlamada }: { finalizarLlamada: () =>
             <button 
                 onClick={toggleMic}
                 className={`p-3 rounded-2xl transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2 ${isMicrophoneEnabled ? 'bg-gray-800 text-white' : 'bg-red-600 text-white shadow-lg shadow-red-900/40'}`}
-                title={isMicrophoneEnabled ? "Silenciar Micrófono" : "Activar Micrófono"}
             >
                 {isMicrophoneEnabled ? <Mic size={20} /> : <MicOff size={20} />}
                 <span className="text-[10px] font-bold uppercase">{isMicrophoneEnabled ? 'On' : 'Off'}</span>
@@ -54,10 +72,10 @@ const ControlesPersonalizados = ({ finalizarLlamada }: { finalizarLlamada: () =>
             {/* Botón de Cámara */}
             <button 
                 onClick={toggleCamera}
-                className={`p-3 rounded-2xl transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2 ${isCameraEnabled ? 'bg-gray-800 text-white' : 'bg-red-600 text-white shadow-lg shadow-red-900/40'}`}
-                title={isCameraEnabled ? "Apagar Cámara" : "Encender Cámara"}
+                disabled={isToggling}
+                className={`p-3 rounded-2xl transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2 ${isCameraEnabled ? 'bg-gray-800 text-white' : 'bg-red-600 text-white shadow-lg shadow-red-900/40'} ${isToggling ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
-                {isCameraEnabled ? <Video size={20} /> : <VideoOff size={20} />}
+                {isToggling ? <Loader2 size={20} className="animate-spin" /> : (isCameraEnabled ? <Video size={20} /> : <VideoOff size={20} />)}
                 <span className="text-[10px] font-bold uppercase">{isCameraEnabled ? 'On' : 'Off'}</span>
             </button>
 
@@ -121,18 +139,19 @@ export default function Videollamada() {
     });
 
     const [livekitToken, setLivekitToken] = useState<string>("");
+    const [lastFetchedRoom, setLastFetchedRoom] = useState<string>("");
 
     useEffect(() => {
-        if (!roomId || !user) return;
+        if (!roomId || !user || roomId === lastFetchedRoom) return;
 
         const fetchToken = async () => {
             try {
+                console.log("[LiveKit] Solicitando token seguro...");
                 const resp = await apiFetch(`/api/livekit/token?room=${roomId}&identity=${encodeURIComponent(user.name)}`);
                 if (resp.ok) {
                     const data = await resp.json();
                     setLivekitToken(data.token);
-                } else {
-                    console.error('Falla al obtener token de LiveKit:', resp.status);
+                    setLastFetchedRoom(roomId);
                 }
             } catch (err) {
                 console.error('Error de red obteniendo token:', err);
@@ -140,7 +159,7 @@ export default function Videollamada() {
         };
 
         fetchToken();
-    }, [roomId, user]);
+    }, [roomId, user?.id, lastFetchedRoom]); // Usamos user.id para mayor estabilidad
 
     useEffect(() => {
         if (!roomId) return;
