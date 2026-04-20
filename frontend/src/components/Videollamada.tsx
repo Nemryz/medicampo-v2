@@ -213,11 +213,10 @@ export default function Videollamada() {
                                         <button onClick={finalizarLlamada} className="p-3 bg-red-600 text-white rounded-2xl hover:bg-red-500 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-red-900/20" title="Finalizar consulta"><PhoneOff size={22} /></button>
                                     </div>
                                 </div>
+                                <div className={`absolute right-0 top-0 bottom-0 w-full lg:w-[320px] bg-gray-900 border-l border-gray-800 transition-transform duration-500 z-40 ${showChat ? 'translate-x-0' : 'translate-x-full'}`}>
+                                    {livekitToken && <ChatConsulta />}
+                                </div>
                             </LiveKitRoom>
-                        </div>
-
-                        <div className={`absolute right-0 top-0 bottom-0 w-full lg:w-[320px] bg-gray-900 border-l border-gray-800 transition-transform duration-500 z-40 ${showChat ? 'translate-x-0' : 'translate-x-full'}`}>
-                            {livekitToken && <ChatConsulta />}
                         </div>
                     </div>
 
