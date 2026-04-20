@@ -10,19 +10,12 @@ import jwt from 'jsonwebtoken';
 import authRoutes from './routes/authRoutes';
 import appointmentRoutes from './routes/appointmentRoutes';
 import clinicalRoutes from './routes/clinicalRoutes';
-import { ExpressPeerServer } from 'peer';
+import livekitRoutes from './routes/livekitRoutes';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 const httpServer = createServer(app);
 
-// Configuración del servidor PeerJS propio
-const peerServer = ExpressPeerServer(httpServer, {
-  debug: true,
-  path: '/'
-});
-
-app.use('/peerjs', peerServer);
 const JWT_SECRET = process.env.JWT_SECRET || 'supersafesecretkey_change_in_production';
 
 app.use(cors());
@@ -31,6 +24,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/clinical', clinicalRoutes);
+app.use('/api/livekit', livekitRoutes);
 
 app.get('/', (req, res) => {
   res.send('mediCampo API is running with Sockets');
@@ -38,7 +32,7 @@ app.get('/', (req, res) => {
 
 // Inicializando Socket.io y lógica de salas WebRTC
 const io = new Server(httpServer, {
-  cors: { origin: '*' }
+  cors: { origin: '*', methods: ['GET', 'POST'] }
 });
 
 // Middleware de Socket para verificar JWT
@@ -57,16 +51,12 @@ io.use((socket, next) => {
 });
 
 io.on('connection', (socket) => {
-  const user = socket.data.user;
-  console.log(`Usuario autenticado en socket [${user.role}]: ${user.name}`);
+  console.log('User connected to socket:', socket.id);
 
-  socket.on('join-room', (roomId, peerId) => {
+  socket.on('join-room', (roomId, userId) => {
     socket.join(roomId);
-    socket.to(roomId).emit('user-connected', peerId);
-
-    socket.on('disconnect', () => {
-      socket.to(roomId).emit('user-disconnected', peerId);
-    });
+    console.log(`User ${userId} joined room: ${roomId}`);
+    socket.to(roomId).emit('user-connected', userId);
   });
 });
 
