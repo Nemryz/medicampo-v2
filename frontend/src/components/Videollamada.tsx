@@ -26,11 +26,21 @@ import { ChatConsulta } from './ChatConsulta';
 const ControlesPersonalizados = ({ finalizarLlamada }: { finalizarLlamada: () => void }) => {
     const { isMicrophoneEnabled, isCameraEnabled, localParticipant } = useLocalParticipant();
 
+    // Si el participante local no está listo, mostramos un estado de espera
+    if (!localParticipant) {
+        return (
+            <div className="bg-gray-900/90 p-4 rounded-3xl border border-gray-700 flex gap-4 items-center">
+                <Loader2 className="animate-spin text-emerald-500" size={20} />
+                <span className="text-white text-xs font-bold uppercase">Iniciando Controles...</span>
+            </div>
+        );
+    }
+
     const toggleMic = () => localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
     const toggleCamera = () => localParticipant.setCameraEnabled(!isCameraEnabled);
 
     return (
-        <div className="bg-gray-900/90 backdrop-blur-xl p-4 rounded-3xl border border-gray-700 shadow-2xl flex gap-4 items-center justify-center">
+        <div className="bg-gray-900/95 backdrop-blur-2xl p-4 rounded-3xl border border-gray-600 shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex gap-4 items-center justify-center pointer-events-auto">
             {/* Botón de Micrófono */}
             <button 
                 onClick={toggleMic}
