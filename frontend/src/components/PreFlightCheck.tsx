@@ -1,21 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { Camera, Mic, CheckCircle2, AlertCircle, Loader2, Play } from 'lucide-react';
+import { Camera, Mic, CheckCircle2, AlertCircle, Loader2, Play, Lock } from 'lucide-react';
 
 /**
- * PRE-FLIGHT CHECK (SALA DE ESPERA TÉCNICA)
+ * PRE-FLIGHT CHECK v2 (Resiliente)
  * 
  * DESCRIPCIÓN:
- * Este componente actúa como un guardián antes de entrar a la videollamada.
- * Permite al usuario verificar que su cámara y micrófono funcionan correctamente.
- * 
- * CÓMO FUNCIONA:
- * 1. Intenta acceder a los medios locales usando navigator.mediaDevices.getUserMedia.
- * 2. Muestra un flujo de video local en tiempo real.
- * 3. Valida el estado de los permisos antes de permitir el acceso a la sala SFU.
- * 
- * CÓMO MODIFICARLO:
- * - Para cambiar el mensaje de error: Edita el estado 'error'.
- * - Para ajustar la estética: Usa los tokens var(--mc-...) en las clases CSS.
+ * Pantalla de validación de hardware con soporte para modo "Solo Audio".
+ * Guía al usuario para desbloquear permisos si el sistema los ha denegado.
  */
 interface PreFlightProps {
     onReady: () => void;
@@ -26,28 +17,37 @@ export const PreFlightCheck = ({ onReady, userName }: PreFlightProps) => {
     const [status, setStatus] = useState({ video: false, audio: false });
     const [stream, setStream] = useState<MediaStream | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const [isChecking, setIsChecking] = useState(true);
+    const [isChecking, setIsChecking] = useState(false);
+    const [isBlocked, setIsBlocked] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
 
-    const checkDevices = async () => {
+    const requestPermissions = async () => {
         setIsChecking(true);
         setError(null);
+        setIsBlocked(false);
+        
         try {
-            const userMedia = await navigator.mediaDevices.getUserMedia({
-                video: { width: 1280, height: 720 },
-                audio: true
+            // Intentamos pedir ambos
+            const userMedia = await navigator.mediaDevices.getUserMedia({ 
+                video: true, 
+                audio: true 
             });
+            
             setStream(userMedia);
             setStatus({ video: true, audio: true });
-            if (videoRef.current) {
-                videoRef.current.srcObject = userMedia;
-            }
+            if (videoRef.current) videoRef.current.srcObject = userMedia;
+
         } catch (err: any) {
-            console.error("Error de permisos:", err);
-            if (err.name === 'NotAllowedError') {
-                setError("Acceso denegado. Por favor, activa los permisos de cámara y micrófono en la barra de tu navegador o en la configuración de tu sistema.");
-            } else {
-                setError("No se detectaron dispositivos de video o audio. Verifica que tu cámara esté conectada.");
+            console.warn("Falla en captura completa, intentando solo audio...", err);
+            
+            // Si falla la cámara, intentamos AL MENOS el audio
+            try {
+                const audioOnly = await navigator.mediaDevices.getUserMedia({ audio: true });
+                setStream(audioOnly);
+                setStatus({ video: false, audio: true });
+            } catch (audioErr) {
+                setIsBlocked(true);
+                setError("El navegador ha bloqueado el acceso. Haz clic en el CANDADO de la barra de direcciones y selecciona 'Permitir' para Cámara y Micrófono.");
             }
         } finally {
             setIsChecking(false);
@@ -55,77 +55,86 @@ export const PreFlightCheck = ({ onReady, userName }: PreFlightProps) => {
     };
 
     useEffect(() => {
-        checkDevices();
-        // Nota: No detenemos los tracks aquí para permitir que LiveKit 
-        // tome el control del hardware sin interrupciones bruscas.
+        requestPermissions();
+        return () => {
+            // Nota: No detenemos los tracks para que LiveKit los herede si es posible
+        };
     }, []);
 
     return (
         <div className="fixed inset-0 bg-[var(--mc-bg-dark)] z-[100] flex items-center justify-center p-4">
             <div className="max-w-4xl w-full grid lg:grid-cols-2 gap-8 items-center">
-
-                {/* Visualizador de Cámara Local */}
+                
+                {/* Visualizador Local */}
                 <div className="relative aspect-video bg-black rounded-[var(--mc-radius-xl)] overflow-hidden border border-gray-800 shadow-2xl mc-glass-panel">
-                    {stream ? (
-                        <video
-                            ref={videoRef}
-                            autoPlay
-                            muted
-                            playsInline
-                            className="w-full h-full object-cover mirror"
-                        />
+                    {status.video && stream ? (
+                        <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover mirror" />
                     ) : (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-600 gap-4">
-                            {isChecking ? <Loader2 className="animate-spin w-8 h-8" /> : <Camera size={48} />}
-                            <p className="text-xs uppercase tracking-widest font-bold">Cámara desactivada</p>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-600 gap-4 bg-gray-900/50">
+                            <div className="w-20 h-20 rounded-full bg-gray-800 flex items-center justify-center">
+                                {status.audio ? <Mic className="text-emerald-500 animate-pulse" size={32} /> : <Camera size={32} />}
+                            </div>
+                            <p className="text-[10px] uppercase tracking-[0.2em] font-bold">
+                                {status.audio ? 'Modo de Solo Audio Activo' : 'Esperando Dispositivos...'}
+                            </p>
                         </div>
                     )}
-
-                    {/* Overlay de Estado */}
-                    <div className="absolute bottom-4 left-4 right-4 flex gap-2">
-                        <div className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase flex items-center gap-2 ${status.video ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
-                            {status.video ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
-                            Video
-                        </div>
-                        <div className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase flex items-center gap-2 ${status.audio ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
-                            {status.audio ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
-                            Audio
-                        </div>
-                    </div>
                 </div>
 
-                {/* Controles y Mensajes */}
-                <div className="space-y-8 text-center lg:text-left p-4">
+                {/* Info y Acciones */}
+                <div className="space-y-8 p-4">
                     <div>
                         <h2 className="text-white text-3xl font-bold mb-2">Hola, {userName}</h2>
-                        <p className="text-gray-400 text-sm">Prepara tu entorno antes de entrar a la consulta médica.</p>
+                        <p className="text-gray-400 text-sm">Configura tu equipo para la consulta.</p>
                     </div>
 
-                    {error && (
-                        <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl flex items-start gap-4 text-left">
-                            <AlertCircle className="text-red-500 shrink-0" size={20} />
-                            <p className="text-red-200 text-xs leading-relaxed">{error}</p>
+                    {isBlocked ? (
+                        <div className="bg-amber-500/10 border border-amber-500/20 p-6 rounded-2xl space-y-4">
+                            <div className="flex items-center gap-3 text-amber-500">
+                                <Lock size={20} />
+                                <span className="font-bold text-sm uppercase tracking-wider">Acceso Bloqueado</span>
+                            </div>
+                            <p className="text-amber-200/80 text-xs leading-relaxed">
+                                Para continuar, debes habilitar los permisos manualmente:
+                                <br/><br/>
+                                1. Haz clic en el **icono del candado** 🔒 en la barra superior.
+                                <br/>
+                                2. Activa los interruptores de **Cámara** y **Micrófono**.
+                                <br/>
+                                3. Refresca la página.
+                            </p>
+                        </div>
+                    ) : error && (
+                        <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl flex items-center gap-4">
+                            <AlertCircle className="text-red-500" size={20} />
+                            <p className="text-red-200 text-xs">{error}</p>
                         </div>
                     )}
 
-                    <div className="space-y-4">
-                        <p className="text-gray-500 text-xs italic">Al hacer clic en "Entrar a la Consulta", aceptas el uso de la cámara y el micrófono para esta sesión cifrada.</p>
+                    <div className="space-y-6">
+                        <div className="flex gap-4">
+                            <div className={`flex-1 p-4 rounded-2xl border ${status.audio ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-gray-800 bg-gray-900/50'} flex items-center gap-3`}>
+                                <Mic size={18} className={status.audio ? 'text-emerald-500' : 'text-gray-600'} />
+                                <span className={`text-xs font-bold ${status.audio ? 'text-white' : 'text-gray-600'}`}>Micrófono {status.audio ? 'Listo' : '---'}</span>
+                            </div>
+                            <div className={`flex-1 p-4 rounded-2xl border ${status.video ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-gray-800 bg-gray-900/50'} flex items-center gap-3`}>
+                                <Camera size={18} className={status.video ? 'text-emerald-500' : 'text-gray-600'} />
+                                <span className={`text-xs font-bold ${status.video ? 'text-white' : 'text-gray-600'}`}>Cámara {status.video ? 'Lista' : 'Off'}</span>
+                            </div>
+                        </div>
 
                         <div className="flex flex-col sm:flex-row gap-4">
-                            <button
-                                onClick={checkDevices}
-                                className="px-6 py-4 rounded-2xl bg-gray-800 text-white font-bold hover:bg-gray-700 transition-all flex items-center justify-center gap-2"
-                            >
-                                <Mic size={18} />
-                                Re-intentar
+                            <button onClick={requestPermissions} className="px-6 py-4 rounded-2xl bg-gray-800 text-white font-bold hover:bg-gray-700 transition-all flex items-center justify-center gap-3">
+                                {isChecking ? <Loader2 className="animate-spin" size={18} /> : <Play size={18} />}
+                                Probar de Nuevo
                             </button>
-                            <button
-                                disabled={!status.video || !status.audio}
+                            <button 
+                                disabled={!status.audio}
                                 onClick={onReady}
-                                className={`flex-1 px-6 py-4 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all ${status.video && status.audio ? 'mc-button-primary text-white' : 'bg-gray-900 text-gray-600 cursor-not-allowed'}`}
+                                className={`flex-1 px-6 py-4 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all ${status.audio ? 'mc-button-primary text-white shadow-lg shadow-emerald-900/20' : 'bg-gray-900 text-gray-600 cursor-not-allowed'}`}
                             >
-                                <Play size={18} />
-                                Entrar a la Consulta
+                                <CheckCircle2 size={18} />
+                                {status.video ? 'Entrar a Videollamada' : 'Entrar solo con Audio'}
                             </button>
                         </div>
                     </div>
