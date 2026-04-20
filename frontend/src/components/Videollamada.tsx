@@ -209,8 +209,8 @@ export default function Videollamada() {
                                     : import.meta.env.VITE_LIVEKIT_URL}
                                 onDisconnected={() => navigate(-1)}
                                 onError={(error) => {
-                                    console.error('Error de LiveKit:', error);
-                                    alert('Falla de conexión o dispositivos: No se pudo iniciar el video. Verifique los permisos de su cámara o el firewall.');
+                                    // Cambiamos alert por console para evitar bloqueos
+                                    console.error('LiveKit Room Error:', error);
                                 }}
                                 className="h-full flex flex-col relative"
                             >
