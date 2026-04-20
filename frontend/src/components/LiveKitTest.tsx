@@ -23,17 +23,22 @@ const LiveKitTest: React.FC = () => {
     const TEST_ROOM_ID = 'test-room-livekit';
 
     const startTest = (role: 'DOCTOR' | 'PATIENT') => {
-        // Guardamos un usuario temporal en el sessionStorage para la prueba
+        // MOCK AUTH: Simulamos un usuario logueado para que apiFetch funcione
         const testUser = {
             id: role === 'DOCTOR' ? 999 : 888,
-            name: role === 'DOCTOR' ? 'Dr. de Prueba' : 'Paciente de Prueba',
-            role: role
+            name: role === 'DOCTOR' ? 'Dr. Carlos Martínez' : 'Juan Pérez García',
+            role: role,
+            email: 'test@medicampo.cl'
         };
         
-        // Simulamos que el usuario está logueado para la prueba
-        console.log(`Iniciando prueba como: ${testUser.name}`);
+        // Guardamos en localStorage para que el AuthContext lo detecte tras recargar
+        localStorage.setItem('medicampo_user', JSON.stringify(testUser));
+        // Nota: En un entorno real usaríamos un token JWT real, 
+        // pero para el Sandbox esto permitirá que los componentes carguen el perfil.
         
-        // Redirigimos a la videollamada real
+        console.log(`[Sandbox] Iniciando como: ${testUser.name}`);
+        
+        // Redirigimos a la videollamada
         navigate(`/videocall/${TEST_ROOM_ID}`);
     };
 
