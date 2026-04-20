@@ -29,12 +29,16 @@ export class LiveKitController {
      */
     public async getAccessToken(req: Request, res: Response): Promise<void> {
         try {
-            const roomName = req.query.room as string;
-            const participantName = req.query.username as string;
+            // El hook useToken del frontend suele enviar 'room' e 'identity'
+            const roomName = (req.query.room || req.query.roomName) as string;
+            const participantName = (req.query.identity || req.query.username) as string;
 
             // Validación de parámetros obligatorios
             if (!roomName || !participantName) {
-                res.status(400).json({ error: 'Faltan parámetros: room y username son obligatorios.' });
+                res.status(400).json({ 
+                    error: 'Faltan parámetros: room e identity son obligatorios.',
+                    received: { room: roomName, identity: participantName }
+                });
                 return;
             }
 
@@ -55,13 +59,13 @@ export class LiveKitController {
             });
 
             // Asignación de permisos (Grants)
-            // Esto define qué puede hacer el usuario dentro de la sala de video.
+            // Agregamos permisos explícitos para video, audio y chat (Data Channels)
             at.addGrant({ 
                 roomJoin: true, 
                 room: roomName,
-                canPublish: true,      // Permite al usuario enviar video/audio
-                canSubscribe: true,    // Permite al usuario ver/oír a otros
-                canPublishData: true,  // Habilita el canal de datos para el chat
+                canPublish: true,      // Permite encender cámara/micro
+                canSubscribe: true,    // Permite ver a los demás
+                canPublishData: true,  // Permite usar el chat
             });
 
             // Generación del JWT y envío al frontend

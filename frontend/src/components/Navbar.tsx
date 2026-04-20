@@ -1,4 +1,4 @@
-import { Video, FileText, CalendarPlus, LogOut } from 'lucide-react';
+import { Video, FileText, CalendarPlus, LogOut, Beaker } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -26,6 +26,18 @@ export default function Navbar({ nombreUsuario, tipoUsuario }: NavbarProps) {
                     </div>
 
                     <div className="flex items-center space-x-6">
+                        {/* Botón de Sandbox LiveKit (Entorno de Pruebas) */}
+                        <button
+                            onClick={() => navigate('/livekit-test')}
+                            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all border-2 border-emerald-500/20 hover:border-emerald-500/50 ${
+                                isActive('/livekit-test')
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-500'
+                                    : 'text-emerald-600 hover:bg-emerald-50'
+                            }`}
+                        >
+                            <Beaker size={20} />
+                            <span className="font-bold">Sandbox LiveKit</span>
+                        </button>
                         {/* Botón de Home/Dashboard según rol */}
                         <button
                             onClick={() => navigate(

@@ -20,12 +20,35 @@ import { API_URL, apiFetch } from '../lib/api';
 import { ChatConsulta } from './ChatConsulta';
 
 /**
- * Componente Videollamada (Versión LiveKit SFU - Modular)
+ * EscenarioVideo (Sub-componente Modular)
  * 
- * SOLUCIÓN AL ERROR DE TIPOS:
- * Se reemplazó VideoConference por GridLayout + ParticipantTile.
- * Esto nos permite tener una interfaz personalizada sin los controles por defecto.
+ * POR QUÉ ESTÁ AQUÍ:
+ * LiveKit requiere que hooks como 'useTracks' se usen DENTRO del contexto de <LiveKitRoom>.
+ * Mover esta lógica aquí soluciona el error "No room provided" y permite que el video cargue.
  */
+const EscenarioVideo = () => {
+    // Obtenemos los tracks de video para la grilla manual de forma simplificada
+    const tracks = useTracks(
+        [Track.Source.Camera, Track.Source.ScreenShare],
+        { onlySubscribed: false },
+    );
+
+    return (
+        <div className="flex-1 flex items-center justify-center bg-black overflow-hidden relative">
+            {tracks.length > 0 ? (
+                <GridLayout tracks={tracks} className="w-full h-full">
+                    <ParticipantTile />
+                </GridLayout>
+            ) : (
+                <div className="flex flex-col items-center gap-4">
+                    <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
+                    <p className="text-gray-500 text-sm animate-pulse">Sincronizando medios...</p>
+                </div>
+            )}
+        </div>
+    );
+};
+
 export default function Videollamada() {
     const { user } = useAuth();
     const { roomId } = useParams<{ roomId: string }>();
@@ -48,22 +71,42 @@ export default function Videollamada() {
         },
     });
 
-    // Obtenemos los tracks de video para la grilla manual de forma simplificada
-    const tracks = useTracks(
-        [Track.Source.Camera, Track.Source.ScreenShare],
-        { onlySubscribed: false },
-    );
-
     useEffect(() => {
         if (!roomId) return;
 
-        // Usamos tu función apiFetch para obtener la cita de forma segura.
+        // MODO SANDBOX: Si la sala es de prueba, usamos datos simulados
+        if (roomId === 'test-room-livekit') {
+            setAppointment({
+                id: 0,
+                patient: { name: 'Paciente de Prueba', rut: '12.345.678-9' },
+                doctor: { name: 'Dr. de Prueba', specialty: { name: 'Medicina Experimental' } }
+            });
+            return;
+        }
+
+        // MODO REAL: Obtenemos la cita de la API
         apiFetch(`/api/appointments/room/${roomId}`)
             .then(r => r.json())
-            .then(data => data.id && setAppointment(data))
-            .catch(err => console.error('Error cargando cita:', err));
+            .then(data => {
+                if (data.id) {
+                    setAppointment(data);
+                } else {
+                    setAppointment({
+                        id: 0,
+                        patient: { name: 'Usuario Externo', rut: 'N/A' },
+                        doctor: { name: 'Médico MediCampo', specialty: { name: 'Consulta General' } }
+                    });
+                }
+            })
+            .catch(err => {
+                console.error('Error cargando cita:', err);
+                setAppointment({
+                    id: 0,
+                    patient: { name: 'Error de Red', rut: '---' },
+                    doctor: { name: 'Reintentando...', specialty: { name: '---' } }
+                });
+            });
 
-        // Timer de la llamada
         const interval = setInterval(() => {
             setTiempoLlamada(prev => {
                 const [m, s] = prev.split(':').map(Number);
@@ -88,7 +131,6 @@ export default function Videollamada() {
                 method: 'POST',
                 body: JSON.stringify(formData)
             });
-
             if (res.ok) {
                 alert('✓ Ficha clínica guardada correctamente.');
                 finalizarLlamada();
@@ -100,7 +142,6 @@ export default function Videollamada() {
         }
     };
 
-    // Si aún no tenemos token, mostramos el cargador premium
     if (token === "") {
         return (
             <div className="min-h-screen bg-black flex flex-col items-center justify-center">
@@ -114,38 +155,24 @@ export default function Videollamada() {
     return (
         <div className="min-h-screen bg-black p-4 flex flex-col justify-center font-sans">
             <div className="max-w-7xl mx-auto w-full bg-gray-900 rounded-[2.5rem] overflow-hidden border border-gray-800 shadow-2xl flex flex-col h-[90vh]">
-
+                
                 {/* Header Superior */}
                 <div className="bg-emerald-600 px-8 py-4 flex justify-between items-center shrink-0">
                     <div className="flex items-center gap-3">
-                        <div className="bg-white/20 p-2 rounded-xl">
-                            <Shield className="text-white w-5 h-5" />
-                        </div>
+                        <div className="bg-white/20 p-2 rounded-xl"><Shield className="text-white w-5 h-5" /></div>
                         <div>
                             <span className="text-white font-bold block leading-none">Consulta LiveKit SFU</span>
                             <span className="text-emerald-100 text-[10px] uppercase tracking-wider font-semibold">Encriptación de extremo a extremo</span>
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
-                        <button
-                            onClick={() => setShowChat(!showChat)}
-                            className={`p-2 rounded-xl transition-colors ${showChat ? 'bg-white text-emerald-600' : 'bg-white/10 text-white hover:bg-white/20'}`}
-                        >
-                            <MessageSquare size={20} />
-                        </button>
-                        <div className="bg-black/20 px-5 py-2 rounded-2xl text-white font-mono flex items-center gap-3 border border-white/10">
-                            <Clock size={16} className="text-emerald-300" />
-                            <span className="font-bold">{tiempoLlamada}</span>
-                        </div>
+                        <button onClick={() => setShowChat(!showChat)} className={`p-2 rounded-xl transition-colors ${showChat ? 'bg-white text-emerald-600' : 'bg-white/10 text-white hover:bg-white/20'}`}><MessageSquare size={20} /></button>
+                        <div className="bg-black/20 px-5 py-2 rounded-2xl text-white font-mono flex items-center gap-3 border border-white/10"><Clock size={16} className="text-emerald-300" /><span className="font-bold">{tiempoLlamada}</span></div>
                     </div>
                 </div>
 
                 <div className="flex-1 flex overflow-hidden lg:flex-row flex-col">
-
-                    {/* Área Principal: Video + Chat */}
                     <div className="flex-1 relative bg-black flex overflow-hidden">
-
-                        {/* Contenedor de LiveKit */}
                         <div className={`flex-1 transition-all duration-500 relative ${showChat ? 'lg:mr-[320px]' : ''}`}>
                             <LiveKitRoom
                                 video={true}
@@ -155,39 +182,24 @@ export default function Videollamada() {
                                 onDisconnected={() => navigate(-1)}
                                 className="h-full flex flex-col relative"
                             >
-                                {/* Grilla de Video Manual (Solución al error de tipos) */}
-                                <div className="flex-1 flex items-center justify-center bg-black overflow-hidden">
-                                    <GridLayout tracks={tracks} className="w-full h-full">
-                                        <ParticipantTile />
-                                    </GridLayout>
-                                </div>
-
+                                <EscenarioVideo />
                                 <RoomAudioRenderer />
-
-                                {/* Barra de Controles Personalizada - Flotando sobre el video */}
+                                
                                 <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50 w-full max-w-fit px-4">
                                     <div className="bg-gray-900/90 backdrop-blur-xl p-4 rounded-3xl border border-gray-700 shadow-2xl flex gap-6 items-center justify-center">
                                         <ControlBar variation="minimal" controls={{ leave: false }} />
                                         <div className="w-[1px] h-8 bg-gray-700" />
-                                        <button
-                                            onClick={finalizarLlamada}
-                                            className="p-3 bg-red-600 text-white rounded-2xl hover:bg-red-500 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-red-900/20"
-                                            title="Finalizar consulta"
-                                        >
-                                            <PhoneOff size={22} />
-                                        </button>
+                                        <button onClick={finalizarLlamada} className="p-3 bg-red-600 text-white rounded-2xl hover:bg-red-500 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-red-900/20" title="Finalizar consulta"><PhoneOff size={22} /></button>
                                     </div>
                                 </div>
                             </LiveKitRoom>
                         </div>
 
-                        {/* Panel de Chat Lateral (Flotante o Integrado) */}
                         <div className={`absolute right-0 top-0 bottom-0 w-full lg:w-[320px] bg-gray-900 border-l border-gray-800 transition-transform duration-500 z-40 ${showChat ? 'translate-x-0' : 'translate-x-full'}`}>
                             {token && <ChatConsulta />}
                         </div>
                     </div>
 
-                    {/* Panel Lateral: Información Médica / Diagnóstico */}
                     <div className="lg:w-[350px] w-full bg-gray-950 p-8 overflow-y-auto border-l border-gray-800">
                         <div className="flex items-center gap-3 mb-8 pb-4 border-b border-gray-800">
                             <Stethoscope className="text-emerald-500 w-6 h-6" />
@@ -201,36 +213,17 @@ export default function Videollamada() {
                                     <p className="text-white font-bold text-base">{appointment?.patient.name}</p>
                                     <p className="text-gray-500 text-xs mt-1">RUT: {appointment?.patient.rut}</p>
                                 </div>
-
                                 <div className="space-y-4">
                                     <div>
                                         <label className="text-[10px] text-gray-400 font-bold uppercase mb-2 block">Diagnóstico del Médico</label>
-                                        <textarea
-                                            required
-                                            value={formData.diagnosis}
-                                            onChange={e => setFormData({ ...formData, diagnosis: e.target.value })}
-                                            className="w-full bg-gray-900 border-gray-800 rounded-2xl p-4 text-sm text-white focus:ring-2 focus:ring-emerald-500 transition-all placeholder:text-gray-700"
-                                            rows={5}
-                                            placeholder="Describa el diagnóstico clínico..."
-                                        />
+                                        <textarea required value={formData.diagnosis} onChange={e => setFormData({ ...formData, diagnosis: e.target.value })} className="w-full bg-gray-900 border-gray-800 rounded-2xl p-4 text-sm text-white focus:ring-2 focus:ring-emerald-500 transition-all placeholder:text-gray-700" rows={5} placeholder="Describa el diagnóstico clínico..." />
                                     </div>
                                     <div>
                                         <label className="text-[10px] text-gray-400 font-bold uppercase mb-2 block">Prescripción Médica</label>
-                                        <textarea
-                                            value={formData.prescription}
-                                            onChange={e => setFormData({ ...formData, prescription: e.target.value })}
-                                            className="w-full bg-gray-900 border-gray-800 rounded-2xl p-4 text-sm text-white focus:ring-2 focus:ring-emerald-500 transition-all placeholder:text-gray-700"
-                                            rows={5}
-                                            placeholder="Medicamentos, dosis y duración..."
-                                        />
+                                        <textarea value={formData.prescription} onChange={e => setFormData({ ...formData, prescription: e.target.value })} className="w-full bg-gray-900 border-gray-800 rounded-2xl p-4 text-sm text-white focus:ring-2 focus:ring-emerald-500 transition-all placeholder:text-gray-700" rows={5} placeholder="Medicamentos, dosis y duración..." />
                                     </div>
                                 </div>
-
-                                <button
-                                    type="submit"
-                                    disabled={isSaving}
-                                    className="w-full bg-emerald-600 py-4 rounded-2xl text-white font-bold hover:bg-emerald-500 transition-all flex items-center justify-center gap-3 shadow-lg shadow-emerald-900/20 active:scale-[0.98]"
-                                >
+                                <button type="submit" disabled={isSaving} className="w-full bg-emerald-600 py-4 rounded-2xl text-white font-bold hover:bg-emerald-500 transition-all flex items-center justify-center gap-3 shadow-lg shadow-emerald-900/20 active:scale-[0.98]">
                                     {isSaving ? <Loader2 className="animate-spin" /> : <Save size={18} />}
                                     Finalizar y Guardar
                                 </button>
@@ -239,19 +232,14 @@ export default function Videollamada() {
                             <div className="space-y-6">
                                 <div className="bg-emerald-900/10 border border-emerald-800/30 p-6 rounded-[2rem]">
                                     <div className="flex items-center gap-3 mb-4">
-                                        <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center text-white font-bold">
-                                            {appointment?.doctor.name.charAt(0)}
-                                        </div>
+                                        <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center text-white font-bold">{appointment?.doctor.name.charAt(0)}</div>
                                         <div>
                                             <p className="text-white font-bold">{appointment?.doctor.name}</p>
                                             <p className="text-emerald-500 text-[10px] font-bold uppercase uppercase tracking-tighter">Médico de Cabecera</p>
                                         </div>
                                     </div>
-                                    <p className="text-gray-400 text-xs leading-relaxed">
-                                        Su consulta está siendo procesada a través de un nodo SFU dedicado para garantizar la máxima privacidad y calidad de video.
-                                    </p>
+                                    <p className="text-gray-400 text-xs leading-relaxed">Su consulta está siendo procesada a través de un nodo SFU dedicado para garantizar la máxima privacidad y calidad de video.</p>
                                 </div>
-
                                 <div className="bg-gray-900/30 p-4 rounded-2xl border border-gray-800">
                                     <p className="text-[10px] text-gray-500 font-bold uppercase mb-2">Especialidad</p>
                                     <p className="text-gray-300 text-sm">{appointment?.doctor.specialty?.name || 'Medicina General'}</p>

@@ -9,9 +9,20 @@ import ReservaCita from './components/ReservaCita';
 import DashboardPaciente from './components/dashboards/DashboardPaciente';
 import DashboardMedico from './components/dashboards/DashboardMedico';
 import DashboardAdmin from './components/dashboards/DashboardAdmin';
+import LiveKitTest from './components/LiveKitTest'; // Importación correcta aquí
 import { useAuth } from './context/AuthContext';
 
-// Componente guard que verifica el rol antes de renderizar
+/**
+ * App.tsx (Sistema de Rutas MediCampo)
+ * 
+ * DESCRIPCIÓN:
+ * Gestiona el enrutamiento principal de la aplicación.
+ * Ahora incluye la ruta /livekit-test para el entorno Sandbox.
+ * 
+ * CÓMO FUNCIONA:
+ * - Filtra las rutas por rol del usuario.
+ * - Muestra la Navbar solo en páginas que no sean de videollamada para maximizar el espacio.
+ */
 function RoleRoute({ roles, element }: { roles: string[]; element: JSX.Element }) {
     const { user } = useAuth();
     if (!user || !roles.includes(user.role)) {
@@ -33,7 +44,6 @@ function App() {
         );
     }
 
-    // Página de inicio según rol
     const homeRoute =
         user.role === 'ADMIN' ? '/admin' :
         user.role === 'DOCTOR' ? '/dashboard-medico' :
@@ -41,7 +51,8 @@ function App() {
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
-            {!location.pathname.startsWith('/room/') && (
+            {/* Ocultamos Navbar en videollamadas y pruebas de LiveKit para un look más inmersivo */}
+            {!location.pathname.startsWith('/room/') && !location.pathname.startsWith('/livekit-test') && (
                 <Navbar
                     nombreUsuario={user.name}
                     tipoUsuario={user.role.toLowerCase() as 'paciente' | 'medico' | 'admin'}
@@ -50,7 +61,6 @@ function App() {
 
             <main className="flex-1">
                 <Routes>
-                    {/* Dashboards protegidos por Rol */}
                     <Route
                         path="/dashboard-paciente"
                         element={<RoleRoute roles={['PATIENT']} element={<DashboardPaciente />} />}
@@ -64,13 +74,14 @@ function App() {
                         element={<RoleRoute roles={['ADMIN']} element={<DashboardAdmin />} />}
                     />
 
-                    {/* Funcionalidades compartidas con sus restricciones */}
                     <Route path="/reserva" element={<RoleRoute roles={['PATIENT']} element={<ReservaCita />} />} />
                     <Route path="/historial" element={<RoleRoute roles={['PATIENT', 'DOCTOR', 'ADMIN']} element={<HistorialClinico />} />} />
                     <Route path="/historial/:appointmentId" element={<HistorialClinico />} />
+                    
+                    {/* Nuevas rutas de Videollamada y Sandbox */}
+                    <Route path="/livekit-test" element={<LiveKitTest />} />
                     <Route path="/room/:roomId" element={<Videollamada />} />
 
-                    {/* Redirigir a home según rol */}
                     <Route path="*" element={<Navigate to={homeRoute} replace />} />
                 </Routes>
             </main>

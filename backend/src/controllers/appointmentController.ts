@@ -123,3 +123,20 @@ export const updateAppointmentStatus = async (req: AuthRequest, res: Response): 
     res.status(500).json({ error: 'Error al actualizar el estado de la cita' });
   }
 };
+// Eliminar todas las citas (Solo para ADMIN durante pruebas)
+export const deleteAllAppointments = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (req.user.role !== 'ADMIN') {
+      res.status(403).json({ error: 'Solo el administrador puede realizar esta acción' });
+      return;
+    }
+
+    // Eliminamos las citas (Prisma maneja el borrado)
+    await prisma.appointment.deleteMany({});
+    
+    res.json({ message: '✓ Todas las citas han sido eliminadas correctamente' });
+  } catch (error) {
+    console.error('Error al limpiar citas:', error);
+    res.status(500).json({ error: 'Error al eliminar las citas' });
+  }
+};

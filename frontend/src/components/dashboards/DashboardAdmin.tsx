@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Users, Activity, CheckCircle2, Clock, ShieldCheck, AlertTriangle } from 'lucide-react';
-import { API_URL } from '../../lib/api';
+import { Users, Activity, CheckCircle2, Clock, ShieldCheck, AlertTriangle, Trash2, Loader2 } from 'lucide-react';
+import { API_URL, apiFetch } from '../../lib/api';
 
 interface Stats {
   totalPatients: number;
@@ -14,16 +14,38 @@ export default function DashboardAdmin() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isCleaning, setIsCleaning] = useState(false);
 
-  useEffect(() => {
-    const token = localStorage.getItem('medicampo_token');
-    fetch(`${API_URL}/api/clinical/admin/stats`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+  const fetchStats = () => {
+    setLoading(true);
+    apiFetch('/api/clinical/admin/stats')
       .then(r => r.json())
       .then(data => { setStats(data); setLoading(false); })
       .catch(() => { setError('Error al cargar estadísticas'); setLoading(false); });
+  };
+
+  useEffect(() => {
+    fetchStats();
   }, []);
+
+  const handleCleanSystem = async () => {
+    if (!confirm('¿Estás seguro de que deseas ELIMINAR TODAS las citas del sistema? Esta acción no se puede deshacer.')) return;
+    
+    setIsCleaning(true);
+    try {
+      const res = await apiFetch('/api/appointments/all', { method: 'DELETE' });
+      if (res.ok) {
+        alert('✓ Sistema limpiado correctamente');
+        fetchStats(); // Recargamos las estadísticas
+      } else {
+        alert('Error al limpiar el sistema');
+      }
+    } catch (err) {
+      alert('Error de conexión');
+    } finally {
+      setIsCleaning(false);
+    }
+  };
 
   const completionRate = stats && stats.totalAppointments > 0
     ? Math.round((stats.completedAppointments / stats.totalAppointments) * 100)
@@ -45,14 +67,25 @@ export default function DashboardAdmin() {
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10 animate-in fade-in duration-500">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <div className="p-3 bg-indigo-100 rounded-2xl">
-          <ShieldCheck className="w-7 h-7 text-indigo-600" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-indigo-100 rounded-2xl">
+            <ShieldCheck className="w-7 h-7 text-indigo-600" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Panel de Administración</h1>
+            <p className="text-gray-500 mt-0.5">Monitoreo global de la plataforma mediCampo.</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Panel de Administración</h1>
-          <p className="text-gray-500 mt-0.5">Monitoreo global de la plataforma mediCampo.</p>
-        </div>
+
+        <button
+          onClick={handleCleanSystem}
+          disabled={isCleaning}
+          className="flex items-center justify-center gap-2 px-6 py-3 bg-red-50 text-red-600 border border-red-100 rounded-2xl font-bold hover:bg-red-600 hover:text-white transition-all disabled:opacity-50 shadow-sm shadow-red-100"
+        >
+          {isCleaning ? <Loader2 className="animate-spin w-5 h-5" /> : <Trash2 className="w-5 h-5" />}
+          Limpiar Todas las Citas
+        </button>
       </div>
 
       {error && (
