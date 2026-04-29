@@ -1,5 +1,5 @@
 # Mapas de Empatía  
-
+ 
 ## 1. Paciente (Rural)
 
 ### ¿Qué piensa y siente?
