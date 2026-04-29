@@ -1,20 +1,20 @@
 import { Request, Response } from 'express';
-import { PrismaClient, Prisma } from '@prisma/client';
+import { AppointmentService } from '../services/AppointmentService';
+import { AppError } from '../services/AuthService';
 import { AuthRequest } from '../middleware/authMiddleware';
 
-const prisma = new PrismaClient();
+/**
+ * AppointmentController
+ * 
+ * S - Single Responsibility: Solo maneja la capa HTTP (request/response) de citas.
+ * D - Dependency Inversion: Depende de AppointmentService (abstracción).
+ */
+const appointmentService = new AppointmentService();
 
 // Obtener todas las especialidades y doctores
 export const getDoctors = async (req: Request, res: Response): Promise<void> => {
   try {
-    const doctors = await prisma.user.findMany({
-      where: { role: 'DOCTOR' },
-      select: {
-        id: true,
-        name: true,
-        specialty: true,
-      }
-    });
+    const doctors = await appointmentService.getDoctors();
     res.json(doctors);
   } catch (error) {
     res.status(500).json({ error: 'Error al obtener doctores' });
@@ -25,20 +25,12 @@ export const getDoctors = async (req: Request, res: Response): Promise<void> => 
 export const createAppointment = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { doctorId, date } = req.body;
-    const patientId = Number(req.user.sub); // JWT sub puede venir como string
+    const patientId = Number(req.user.sub);
 
-    const appointment = await prisma.appointment.create({
-      data: {
-        patientId,
-        doctorId: Number(doctorId),
-        date: new Date(date),
-        meetingLink: `/room/${Math.random().toString(36).substring(7)}`,
-        status: 'PENDING'
-      },
-      include: {
-        doctor: { select: { name: true, specialty: true } },
-        patient: { select: { name: true, rut: true } }
-      }
+    const appointment = await appointmentService.createAppointment({
+      doctorId,
+      date,
+      patientId,
     });
 
     res.status(201).json(appointment);
@@ -54,16 +46,7 @@ export const getMyAppointments = async (req: AuthRequest, res: Response): Promis
     const userId = Number(req.user.sub);
     const role = req.user.role;
 
-    const appointments = await prisma.appointment.findMany({
-      where: role === 'DOCTOR' ? { doctorId: userId } : { patientId: userId },
-      include: {
-        doctor: { select: { name: true, specialty: true } },
-        patient: { select: { name: true, rut: true } },
-        clinicalRecord: { select: { diagnosis: true } }
-      },
-      orderBy: { date: 'asc' }
-    });
-
+    const appointments = await appointmentService.getMyAppointments(userId, role);
     res.json(appointments);
   } catch (error) {
     res.status(500).json({ error: 'Error al obtener tu agenda de citas' });
@@ -73,17 +56,8 @@ export const getMyAppointments = async (req: AuthRequest, res: Response): Promis
 // Obtener info de cita por link de sala
 export const getAppointmentByRoomId = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { roomId } = req.params;
-    const fullLink = `/room/${roomId}`;
-
-    const appointment = await prisma.appointment.findFirst({
-      where: { meetingLink: fullLink },
-      include: {
-        doctor: { select: { id: true, name: true, specialty: true } },
-        patient: { select: { id: true, name: true, rut: true } },
-        clinicalRecord: true
-      }
-    });
+    const roomId = req.params.roomId as string;
+    const appointment = await appointmentService.getAppointmentByRoomId(roomId);
 
     if (!appointment) {
       res.status(404).json({ error: 'Cita no encontrada para esta sala' });
@@ -103,39 +77,27 @@ export const updateAppointmentStatus = async (req: AuthRequest, res: Response): 
     const { status } = req.body;
     const userId = Number(req.user.sub);
 
-    // Solo el médico asignado puede cambiar el estado
-    const appointment = await prisma.appointment.findFirst({
-      where: { id: Number(id), doctorId: userId }
-    });
-
-    if (!appointment) {
-      res.status(403).json({ error: 'No tienes permiso para modificar esta cita' });
-      return;
-    }
-
-    const updated = await prisma.appointment.update({
-      where: { id: Number(id) },
-      data: { status }
-    });
-
+    const updated = await appointmentService.updateAppointmentStatus(Number(id), userId, status);
     res.json(updated);
   } catch (error) {
+    if (error instanceof AppError) {
+      res.status(error.statusCode).json({ error: error.message });
+      return;
+    }
     res.status(500).json({ error: 'Error al actualizar el estado de la cita' });
   }
 };
+
 // Eliminar todas las citas (Solo para ADMIN durante pruebas)
 export const deleteAllAppointments = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    if (req.user.role !== 'ADMIN') {
-      res.status(403).json({ error: 'Solo el administrador puede realizar esta acción' });
-      return;
-    }
-
-    // Eliminamos las citas (Prisma maneja el borrado)
-    await prisma.appointment.deleteMany({});
-    
+    await appointmentService.deleteAllAppointments(req.user.role);
     res.json({ message: '✓ Todas las citas han sido eliminadas correctamente' });
   } catch (error) {
+    if (error instanceof AppError) {
+      res.status(error.statusCode).json({ error: error.message });
+      return;
+    }
     console.error('Error al limpiar citas:', error);
     res.status(500).json({ error: 'Error al eliminar las citas' });
   }

@@ -1,8 +1,15 @@
 import { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { ClinicalService } from '../services/ClinicalService';
+import { AppError } from '../services/AuthService';
 import { AuthRequest } from '../middleware/authMiddleware';
 
-const prisma = new PrismaClient();
+/**
+ * ClinicalController
+ * 
+ * S - Single Responsibility: Solo maneja la capa HTTP (request/response) de fichas clínicas.
+ * D - Dependency Inversion: Depende de ClinicalService (abstracción).
+ */
+const clinicalService = new ClinicalService();
 
 // POST /api/clinical/:appointmentId — Guardar/actualizar ficha clínica (solo DOCTOR)
 export const saveClinicalRecord = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -10,41 +17,23 @@ export const saveClinicalRecord = async (req: AuthRequest, res: Response): Promi
     const { appointmentId } = req.params;
     const doctorId = req.user.sub;
 
-    // Verificar que el appointment pertenece a este doctor
-    const appointment = await prisma.appointment.findFirst({
-      where: { id: Number(appointmentId), doctorId }
-    });
-    if (!appointment) {
-      res.status(403).json({ error: 'No tienes acceso a esta cita' });
-      return;
-    }
-
     const {
       symptoms, diagnosis, prescription, observations, allergies,
-      weight, height, bloodPressure, temperature, heartRate, oxygenSat
+      weight, height, bloodPressure, temperature, heartRate, oxygenSat,
     } = req.body;
 
-    const record = await prisma.clinicalRecord.upsert({
-      where: { appointmentId: Number(appointmentId) },
-      create: {
-        appointmentId: Number(appointmentId),
-        symptoms, diagnosis, prescription, observations, allergies,
-        weight, height, bloodPressure, temperature, heartRate, oxygenSat
-      },
-      update: {
-        symptoms, diagnosis, prescription, observations, allergies,
-        weight, height, bloodPressure, temperature, heartRate, oxygenSat
-      }
-    });
-
-    // Marcar la cita como COMPLETED al guardar ficha
-    await prisma.appointment.update({
-      where: { id: Number(appointmentId) },
-      data: { status: 'COMPLETED' }
-    });
+    const record = await clinicalService.saveClinicalRecord(
+      Number(appointmentId),
+      doctorId,
+      { symptoms, diagnosis, prescription, observations, allergies, weight, height, bloodPressure, temperature, heartRate, oxygenSat }
+    );
 
     res.json(record);
   } catch (error) {
+    if (error instanceof AppError) {
+      res.status(error.statusCode).json({ error: error.message });
+      return;
+    }
     console.error(error);
     res.status(500).json({ error: 'Error al guardar la ficha clínica' });
   }
@@ -54,24 +43,17 @@ export const saveClinicalRecord = async (req: AuthRequest, res: Response): Promi
 export const getPatientHistory = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { patientId } = req.params;
-
-    // Pacientes solo pueden ver su propio historial; médicos y admin pueden ver cualquiera
-    if (req.user.role === 'PATIENT' && req.user.sub !== Number(patientId)) {
-      res.status(403).json({ error: 'Acceso denegado' });
-      return;
-    }
-
-    const records = await prisma.appointment.findMany({
-      where: { patientId: Number(patientId), status: 'COMPLETED' },
-      include: {
-        clinicalRecord: true,
-        doctor: { select: { name: true, specialty: true } }
-      },
-      orderBy: { date: 'desc' }
-    });
-
+    const records = await clinicalService.getPatientHistory(
+      Number(patientId),
+      req.user.sub,
+      req.user.role
+    );
     res.json(records);
   } catch (error) {
+    if (error instanceof AppError) {
+      res.status(error.statusCode).json({ error: error.message });
+      return;
+    }
     res.status(500).json({ error: 'Error al obtener historial' });
   }
 };
@@ -80,16 +62,13 @@ export const getPatientHistory = async (req: AuthRequest, res: Response): Promis
 export const getAppointmentRecord = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { appointmentId } = req.params;
-    const record = await prisma.clinicalRecord.findUnique({
-      where: { appointmentId: Number(appointmentId) },
-      include: { appointment: { include: { patient: { select: { name: true, rut: true } }, doctor: { select: { name: true } } } } }
-    });
-    if (!record) {
-      res.status(404).json({ error: 'Ficha no encontrada' });
-      return;
-    }
+    const record = await clinicalService.getAppointmentRecord(Number(appointmentId));
     res.json(record);
   } catch (error) {
+    if (error instanceof AppError) {
+      res.status(error.statusCode).json({ error: error.message });
+      return;
+    }
     res.status(500).json({ error: 'Error al obtener ficha' });
   }
 };
@@ -102,23 +81,8 @@ export const getAdminStats = async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
-    const [totalPatients, totalDoctors, totalAppointments, completedAppointments] = await Promise.all([
-      prisma.user.count({ where: { role: 'PATIENT' } }),
-      prisma.user.count({ where: { role: 'DOCTOR' } }),
-      prisma.appointment.count(),
-      prisma.appointment.count({ where: { status: 'COMPLETED' } })
-    ]);
-
-    const recentAppointments = await prisma.appointment.findMany({
-      take: 10,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        patient: { select: { name: true } },
-        doctor: { select: { name: true } }
-      }
-    });
-
-    res.json({ totalPatients, totalDoctors, totalAppointments, completedAppointments, recentAppointments });
+    const stats = await clinicalService.getAdminStats();
+    res.json(stats);
   } catch (error) {
     res.status(500).json({ error: 'Error al obtener estadísticas' });
   }
