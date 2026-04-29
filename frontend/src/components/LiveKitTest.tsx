@@ -30,16 +30,16 @@ const LiveKitTest: React.FC = () => {
             role: role,
             email: 'test@medicampo.cl'
         };
-        
+
         // Guardamos en localStorage para que el AuthContext lo detecte tras recargar
         localStorage.setItem('medicampo_user', JSON.stringify(testUser));
         // Nota: En un entorno real usaríamos un token JWT real, 
         // pero para el Sandbox esto permitirá que los componentes carguen el perfil.
-        
+
         console.log(`[Sandbox] Iniciando como: ${testUser.name}`);
-        
+
         // Redirigimos a la videollamada
-        navigate(`/videocall/${TEST_ROOM_ID}`);
+        navigate(`/room/${TEST_ROOM_ID}`);
     };
 
     return (
@@ -53,7 +53,7 @@ const LiveKitTest: React.FC = () => {
                     </div>
                     <h1 className="text-4xl font-black text-white mb-4">Prueba de Videollamada SFU</h1>
                     <p className="text-gray-500 max-w-lg mx-auto">
-                        Utiliza este entorno para verificar que tu cámara, micrófono y el servidor LiveKit 
+                        Utiliza este entorno para verificar que tu cámara, micrófono y el servidor LiveKit
                         en DigitalOcean están funcionando correctamente.
                     </p>
                 </div>
@@ -61,7 +61,7 @@ const LiveKitTest: React.FC = () => {
                 <div className="grid md:grid-cols-2 gap-8">
                     {/* Opción Doctor */}
                     <div className="group bg-gray-900 border border-gray-800 p-8 rounded-[2.5rem] hover:border-emerald-500/50 transition-all duration-500 cursor-pointer"
-                         onClick={() => startTest('DOCTOR')}>
+                        onClick={() => startTest('DOCTOR')}>
                         <div className="w-16 h-16 bg-emerald-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-lg shadow-emerald-900/20">
                             <Stethoscope className="text-white w-8 h-8" />
                         </div>
@@ -76,7 +76,7 @@ const LiveKitTest: React.FC = () => {
 
                     {/* Opción Paciente */}
                     <div className="group bg-gray-900 border border-gray-800 p-8 rounded-[2.5rem] hover:border-blue-500/50 transition-all duration-500 cursor-pointer"
-                         onClick={() => startTest('PATIENT')}>
+                        onClick={() => startTest('PATIENT')}>
                         <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-lg shadow-blue-900/20">
                             <User className="text-white w-8 h-8" />
                         </div>
