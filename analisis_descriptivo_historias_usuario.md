@@ -251,7 +251,7 @@ Yo como paciente necesito poder guardar e imprimir mis recetas y diagnósticos m
 | 3. Visualización correcta del documento | ❌ Pendiente | No hay estilos `@media print` específicos para formato oficial. |
 | 4. Cron job para generar PDF y enviar por correo | ❌ Pendiente | No implementado. |
 | 5. Interfaz de administración | ❌ Pendiente | No implementado. |
-| 6. Refactorizar backend (SOLID) | ❌ Pendiente | No implementado. |
+| 6. Refactorizar backend (SOLID) | ✅ Completo | Implementado el 28/04/2026. Se crearon interfaces, repositorios, servicios y controladores separados. Arquitectura en capas con inyección de dependencias. Build compila sin errores. |
 | 7. Mejorar UI para impresión/descarga | ❌ Pendiente | No implementado. |
 
 ### Observaciones

@@ -1,22 +1,27 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { getAccessToken } from '../controllers/livekitController';
-import { protect } from '../middleware/authMiddleware';
+import { protect, AuthRequest } from '../middleware/authMiddleware';
 
 /**
  * LiveKit Routes
  * 
- * DESCRIPCIÓN:
- * Define los puntos de entrada (endpoints) para la gestión de videollamadas.
+ * DESCRIPCION:
+ * Define los puntos de entrada (endpoints) para la gestion de videollamadas.
  * 
- * CÓMO FUNCIONA:
+ * COMO FUNCIONA:
  * 1. El cliente solicita un token a /api/livekit/token.
- * 2. El middleware 'protect' valida que el usuario esté logueado en MediCampo (JWT).
- * 3. Si es válido, el controlador genera y devuelve el pase de acceso firmado.
+ * 2. El middleware 'protect' valida que el usuario este logueado en MediCampo (JWT).
+ * 3. Si es valido, el controlador genera y devuelve el pase de acceso firmado.
  */
 const router = Router();
 
+// Wrapper to handle AuthRequest type compatibility with Express
+const authHandler = (fn: (req: AuthRequest, res: Response) => Promise<void>) => {
+    return (req: Request, res: Response) => fn(req as AuthRequest, res);
+};
+
 // Endpoint para obtener el Access Token.
-// Requiere: Parámetros 'room' y 'username' en el query string.
-router.get('/token', protect, getAccessToken);
+// Requiere: Parametros 'room' y 'username' en el query string.
+router.get('/token', protect, authHandler(getAccessToken));
 
 export default router;
