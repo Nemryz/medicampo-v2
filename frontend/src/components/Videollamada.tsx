@@ -205,6 +205,7 @@ export default function Videollamada() {
             setLivekitToken(data.token);
             setLastFetchedRoom(roomId);
             reconnectAttempts.current = 0;
+            setIsReconnecting(false);
         } catch (err: any) {
             console.error('Error token:', err);
             setConnectionError(err.message || 'Error al conectar con la sala');
@@ -322,9 +323,15 @@ export default function Videollamada() {
             onDisconnected={handleRoomDisconnected}
             onError={(error) => {
                 console.error('[Room] Error:', error);
-                setConnectionError('Se perdio la conexion con la sala. Reintentando...');
-                setIsReconnecting(true);
-                setTimeout(() => fetchToken(), 3000);
+                if (reconnectAttempts.current < maxReconnectAttempts) {
+                    reconnectAttempts.current++;
+                    setConnectionError('Se perdio la conexion con la sala. Reintentando...');
+                    setIsReconnecting(true);
+                    setTimeout(() => fetchToken(), 3000);
+                } else {
+                    setConnectionError('No se pudo establecer conexion con la sala.');
+                    setIsReconnecting(false);
+                }
             }}
             options={{
                 adaptiveStream: true,
