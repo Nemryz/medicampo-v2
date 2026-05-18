@@ -204,7 +204,6 @@ export default function Videollamada() {
             const data = await resp.json();
             setLivekitToken(data.token);
             setLastFetchedRoom(roomId);
-            reconnectAttempts.current = 0;
             setIsReconnecting(false);
         } catch (err: any) {
             console.error('Error token:', err);
@@ -263,6 +262,7 @@ export default function Videollamada() {
     const handleRoomConnected = useCallback(() => {
         setIsReconnecting(false);
         setConnectionError(null);
+        reconnectAttempts.current = 0;
         console.log('[Room] Conectado a la sala');
     }, []);
 
@@ -273,11 +273,24 @@ export default function Videollamada() {
 
     const handleSaveRecord = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!appointment?.id) {
+            alert('Error: no se pudo identificar la cita. Intenta recargar la página.');
+            return;
+        }
         setIsSaving(true);
         try {
             const res = await apiFetch(`/api/clinical/${appointment.id}`, { method: 'POST', body: JSON.stringify(formData) });
-            if (res.ok) navigate(-1);
-        } finally { setIsSaving(false); }
+            if (res.ok) {
+                navigate(-1);
+            } else {
+                const err = await res.json().catch(() => ({}));
+                alert(err.error || 'Error al guardar la ficha clínica. Verifica tu conexión e intenta de nuevo.');
+            }
+        } catch (err: any) {
+            alert('Error de red: ' + (err.message || 'No se pudo conectar con el servidor'));
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     // FASE 3: Si no ha pasado el chequeo de hardware, mostramos la sala de espera tecnica
