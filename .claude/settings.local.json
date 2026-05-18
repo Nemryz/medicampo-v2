@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\ignac\\\\Downloads\\\\mediCampo-v2\" -Recurse -Filter \"*.md\")",
+      "Bash(Select-Object FullName)",
+      "Bash(Format-List)"
+    ]
+  }
+}
