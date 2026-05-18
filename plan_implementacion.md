@@ -110,51 +110,58 @@ Si se quiere conectar desde otra máquina por SSH en el futuro, se puede agregar
 
 echo "ssh-ed25519 CLAVE_PUBLICA_DE_LA_NUEVA_MAQUINA usuario@nombre" >> /root/.ssh/authorized_keys
 
-### Credenciales de la API de LiveKit — situación actual
+### Credenciales de la API de LiveKit — verificadas y confirmadas
 
-Se detectaron dos conjuntos de claves de LiveKit en los archivos del escritorio. El primero corresponde a las claves que actualmente están en el archivo livekit.yaml del servidor según los registros de despliegue anteriores:
+Las credenciales activas fueron verificadas directamente en el servidor el 18 de mayo de 2026 leyendo el archivo /root/livekit.yaml del Droplet. El archivo contiene un único conjunto de claves:
 
-Clave API vieja (LiveKitt.txt): APIQGDQzr8pgWX4
-Secreto API viejo: ly5Xjur3ZqMTSYHkUfxMevKXeg5isvawOodby4fz2luC
+LIVEKIT_API_KEY=APIQGDQzr8pgWX4
+LIVEKIT_API_SECRET=ly5Xjur3ZqMTSYHkUfxMevKXeg5isvawOodby4fz2luC
+LIVEKIT_URL=wss://medicampo-rtc.duckdns.org
 
-El segundo conjunto fue generado más recientemente por el asistente de configuración de LiveKit Cloud o del propio servidor, y se encuentra en command.txt:
+Estas son las únicas claves válidas para este servidor. Cualquier token firmado con claves distintas es rechazado por LiveKit con error de autorización y la videollamada no abre.
 
-Clave API nueva (command.txt): APIFDpTohrspFM8
-Secreto API nuevo: 7kwWxVnPRAiUovmIXlJ8jswCJfVCQDO8oIqyV5K3N2J
+El segundo conjunto de claves que existe en el archivo command.txt del escritorio (APIFDpTohrspFM8 y su secreto correspondiente) nunca fue aplicado al servidor. Ese par de claves fue generado por el asistente de configuración de LiveKit pero no reemplazó al conjunto activo en livekit.yaml. Esas claves del command.txt no son válidas para este servidor y no deben usarse.
 
-Esta discrepancia requiere verificación antes de continuar cualquier trabajo en la videollamada. El conjunto que está activo en el archivo /root/livekit.yaml del servidor es el que define cuál de los dos funciona. Para verificarlo, se conecta al servidor y se ejecuta:
+El archivo backend/.env local y las variables de entorno del Web Service en DigitalOcean App Platform deben tener exactamente los tres valores indicados arriba. Si en el panel de App Platform aparece cualquier otro valor para LIVEKIT_API_KEY, ese es el motivo por el que la videollamada falla en producción aunque el servidor del Droplet esté funcionando correctamente.
 
-cat /root/medicampo-rtc.duckdns.org/livekit.yaml
-
-El resultado mostrará las claves que el servidor está usando para firmar y verificar tokens. El backend de mediCampo en backend/.env debe usar exactamente las mismas claves que aparezcan en ese archivo, porque si las claves no coinciden los tokens generados por el backend son rechazados por el servidor y la videollamada no abre.
+Estado verificado del servidor al 18 de mayo de 2026:
+El contenedor livekit-server lleva más de 2 semanas activo sin interrupciones.
+El contenedor caddy-server lleva más de 2 semanas activo sin interrupciones.
+El firewall UFW tiene abiertos todos los puertos requeridos: 80 TCP, 443 TCP, 7880 TCP, 7881 TCP, 3478 UDP y el rango 50000-60000 UDP, tanto en IPv4 como en IPv6.
+La infraestructura del servidor no requiere ningún cambio.
 
 ### Backend desplegado en DigitalOcean
 
-El backend está desplegado como DigitalOcean App Platform Web Service en la URL:
-https://medicampo-api-cvqas.ondigitalocean.app
+El backend está desplegado como DigitalOcean App Platform Web Service. La URL de producción es medicampo-api-cvqas.ondigitalocean.app.
 
 Las variables de entorno que ese servicio necesita están definidas en el panel de DigitalOcean App Platform. Los valores locales de desarrollo están en el archivo backend/.env que no está en el repositorio (está en .gitignore). El archivo backend/.env.example muestra la estructura esperada:
 
+```env
 PORT=5000
 DATABASE_URL=postgresql://user:pass@host:port/db?sslmode=require
 JWT_SECRET=clave_secreta_para_firmar_jwt
-FRONTEND_URL=https://medicampo-frontend.ondigitalocean.app
+FRONTEND_URL=medicampo-frontend.ondigitalocean.app
+```
 
 A esas variables hay que agregarles las de LiveKit para que el backend pueda generar tokens:
 
+```env
 LIVEKIT_API_KEY=la_clave_que_coincida_con_el_servidor
 LIVEKIT_API_SECRET=el_secreto_que_coincida_con_el_servidor
 LIVEKIT_URL=wss://medicampo-rtc.duckdns.org
+```
 
 ### Frontend desplegado en DigitalOcean
 
 El frontend está desplegado como DigitalOcean Static Site. La URL del sitio estático no fue registrada en los documentos del proyecto pero se puede obtener desde el panel de App Platform. El archivo frontend/.env actual tiene los siguientes valores para desarrollo local:
 
+```env
 VITE_API_URL=http://localhost:5000
 VITE_SOCKET_URL=http://localhost:5000
 VITE_LIVEKIT_URL=wss://medicampo-rtc.duckdns.org
+```
 
-En producción, VITE_API_URL debe apuntar a https://medicampo-api-cvqas.ondigitalocean.app y eso se configura en las variables de entorno del Static Site dentro del panel de DigitalOcean, no en el archivo local.
+En producción, VITE_API_URL debe apuntar a medicampo-api-cvqas.ondigitalocean.app y eso se configura en las variables de entorno del Static Site dentro del panel de DigitalOcean, no en el archivo local.
 
 ### Puertos que deben estar abiertos en el firewall del Droplet
 
@@ -481,7 +488,8 @@ Tarea T08.5 y T08.6 — Generación de PDF con html2canvas y jsPDF:
 Paso 1. Instalar las librerías:
 cd frontend && npm install html2canvas jspdf
 
-Paso 2. En HistorialClinico.tsx, agregar una función handleDownloadPDF que:
+Paso 2. En HistorialClinico.tsx, agregar una función handleDownloadPDF que realiza los siguientes pasos en secuencia:
+
 - Obtiene la referencia al div del documento con useRef.
 - Llama a html2canvas(ref.current, { scale: 2 }) para capturar el contenido con alta resolución.
 - Crea una instancia de jsPDF con formato A4 en orientación vertical.
@@ -549,7 +557,7 @@ prisma.appointment.findMany({
   include: { patient: true, doctor: { include: { specialty: true } } }
 })
 
-Donde targetMs es 24 * 60 * 60 * 1000 para el primer recordatorio y 60 * 60 * 1000 para el segundo, y windowMs es 30 * 60 * 1000 (ventana de 30 minutos para compensar el drift del cron).
+Donde `targetMs` es `24 * 60 * 60 * 1000` para el primer recordatorio y `60 * 60 * 1000` para el segundo, y `windowMs` es `30 * 60 * 1000` (ventana de 30 minutos para compensar el drift del cron).
 
 Paso 7. Para evitar enviar el mismo recordatorio dos veces, agregar un campo reminderSent24h Boolean con valor por defecto false y reminderSent1h Boolean con valor por defecto false en el modelo Appointment del schema.prisma, y actualizar esos campos con prisma.appointment.update después de cada envío exitoso.
 
@@ -584,6 +592,7 @@ Paso 2. Autenticarse en la extensión con la cuenta de 1Password del equipo. Si 
 Paso 3. Crear una bóveda llamada "mediCampo Producción" dentro de la cuenta de 1Password.
 
 Paso 4. Crear entradas individuales en esa bóveda para cada secreto:
+
 - Entrada "LiveKit Production": URL del servidor, API Key, API Secret.
 - Entrada "PostgreSQL DigitalOcean": la DATABASE_URL completa con usuario, contraseña, host, puerto y nombre de la base de datos.
 - Entrada "JWT Secret": la clave usada para firmar los tokens JWT.
@@ -636,6 +645,7 @@ Paso 3. Seleccionar la suite de consultas "Security Extended" para JavaScript y 
 Paso 4. Esperar a que el análisis complete. Dependiendo del tamaño del proyecto puede tomar entre 2 y 10 minutos.
 
 Paso 5. Revisar los resultados en el panel de CodeQL. Priorizar los hallazgos en los siguientes archivos críticos:
+
 - backend/src/middleware/authMiddleware.ts: verificar que no hay caminos donde un token inválido llegue al controlador.
 - backend/src/controllers/clinicalController.ts: verificar que la verificación de rol ADMIN es inalcanzable sin pasar por el middleware.
 - backend/src/services/LiveKitService.ts: verificar que la verificación de cita asignada no puede ser omitida.
@@ -657,20 +667,20 @@ Paso 3. Crear el archivo backend/jest.config.js:
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  roots: ['<rootDir>/src'],
-  testMatch: ['**/__tests__/**/*.ts', '**/*.test.ts'],
+  roots: ['./src'],
+  testMatch: ['**/tests/**/*.ts', '**/*.test.ts'],
 };
 
 Paso 4. Agregar el script en backend/package.json:
 "test": "jest"
 
-Paso 5. Crear la carpeta backend/src/__tests__/ donde irán los archivos de test.
+Paso 5. Crear la carpeta backend/src/tests/ donde irán los archivos de test.
 
-Paso 6. Usar Keploy para generar tests del AppointmentService: abrir el archivo backend/src/services/AppointmentService.ts, hacer clic derecho sobre el método createAppointment y buscar la opción "Generate Unit Tests with Keploy". La extensión analiza la firma del método y genera el archivo __tests__/AppointmentService.test.ts con casos de éxito y error.
+Paso 6. Usar Keploy para generar tests del AppointmentService: abrir el archivo backend/src/services/AppointmentService.ts, hacer clic derecho sobre el método createAppointment y buscar la opción "Generate Unit Tests with Keploy". La extensión analiza la firma del método y genera el archivo tests/AppointmentService.test.ts con casos de éxito y error.
 
 Paso 7. Repetir el proceso para ClinicalService.saveClinicalRecord y AuthService.login.
 
-Paso 8. Revisar manualmente los tests generados y ajustar los mocks de Prisma para que usen datos del seed (las cuentas admin@medicampo.cl, doctor@medicampo.cl, dra.silva@medicampo.cl, paciente@medicampo.cl con contraseña medicampo123).
+Paso 8. Revisar manualmente los tests generados y ajustar los mocks de Prisma para que usen datos del seed: las cuentas con dominios medicampo.cl (admin, doctor, dra.silva y paciente) con contraseña medicampo123.
 
 Paso 9. Ejecutar npm test para verificar que todos los tests pasan.
 
@@ -687,6 +697,7 @@ Paso 1. Instalar la extensión "SecureCodeGuard" desde el marketplace de VS Code
 Paso 2. Autenticarse con la cuenta del equipo y configurar las reglas para TypeScript, JavaScript y React (TSX/JSX).
 
 Paso 3. Con la extensión activa, abrir cada uno de los siguientes archivos y revisar las advertencias que muestre:
+
 - frontend/src/components/auth/Login.tsx
 - frontend/src/components/auth/Register.tsx
 - frontend/src/components/ReservaCita.tsx
