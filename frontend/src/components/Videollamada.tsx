@@ -335,7 +335,7 @@ export default function Videollamada() {
                     <div className="flex-1 relative bg-black flex overflow-hidden min-h-[40vh] lg:min-h-0">
                         <div className={`flex-1 transition-all duration-500 relative ${showChat ? 'lg:mr-[320px]' : ''}`}>
                             <LiveKitRoom
-                                video={false}
+                                video={true}
                                 audio={true}
                                 token={livekitToken}
                                 serverUrl={serverUrl}

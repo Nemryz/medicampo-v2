@@ -128,9 +128,12 @@ export const PreFlightCheck = ({ onReady, userName }: PreFlightProps) => {
                                 {isChecking ? <Loader2 className="animate-spin" size={18} /> : <Play size={18} />}
                                 Probar de Nuevo
                             </button>
-                            <button 
+                            <button
                                 disabled={!status.audio}
-                                onClick={onReady}
+                                onClick={() => {
+                                    if (stream) stream.getTracks().forEach(t => t.stop());
+                                    onReady();
+                                }}
                                 className={`flex-1 px-6 py-4 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all ${status.audio ? 'mc-button-primary text-white shadow-lg shadow-emerald-900/20' : 'bg-gray-900 text-gray-600 cursor-not-allowed'}`}
                             >
                                 <CheckCircle2 size={18} />
