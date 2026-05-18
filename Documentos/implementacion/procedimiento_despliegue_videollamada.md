@@ -258,9 +258,21 @@ El backend genera tokens con un TTL de 10 minutos definido en LiveKitService. La
 
 9.3. Probar la conexion desde datos moviles
 
-Estado: parcialmente completado.
+Estado: parcialmente completado, requiere verificacion adicional.
 
 La conexion desde el navegador movil llega al servidor a nivel de senalizacion (WebSocket). Los logs de LiveKit muestran que el participante ingresa a la sala correctamente. La conexion desde un navegador movil con sesion iniciada correctamente en la aplicacion funciona cuando el usuario ha completado el flujo de login desde el inicio. Se identifico que acceder directamente a la URL de la sala sin haber iniciado sesion en ese navegador produce el error "No autorizado, token faltante" porque el JWT de sesion no existe en el localStorage de ese navegador.
+
+Pasos pendientes para completar esta verificacion:
+
+Paso 1. Abrir el navegador del telefono movil y navegar a la URL principal de la aplicacion. No escribir directamente la URL de la sala.
+
+Paso 2. Completar el login con las credenciales del paciente en la pantalla de inicio de sesion del navegador movil.
+
+Paso 3. Desde el dashboard del paciente en el movil, ubicar la cita confirmada y hacer clic en el boton de entrar a la consulta. No copiar y pegar la URL de la sala directamente en la barra de direcciones.
+
+Paso 4. Si hay errores, capturar la consola del navegador movil. En Chrome para Android esto se hace conectando el telefono por USB a una computadora, activando la depuracion USB en las opciones de desarrollador del telefono, y abriendo chrome://inspect en el navegador del computador. Desde ahi se puede ver la consola del navegador movil en tiempo real.
+
+Paso 5. Comparar los errores con la seccion 10 de este documento para identificar la causa y aplicar la correccion correspondiente.
 
 9.4. Probar la conexion entre dispositivos moviles y computadoras
 
@@ -272,7 +284,67 @@ La combinacion medico desde computadora y paciente desde computadora funciona co
 
 Estado: pendiente.
 
-Actualmente el sistema no cuenta con un servidor TURN configurado. La videollamada puede no funcionar en redes corporativas, redes de hospitales, o cualquier red que tenga firewalls restrictivos o que use NAT simetrica. El subdominio medicampo-turn.duckdns.org esta reservado para este proposito pero el servidor TURN no ha sido desplegado. Se recomienda configurar coturn como servidor TURN en el mismo droplet o en uno dedicado para garantizar la conectividad en estos escenarios.
+Actualmente el sistema no cuenta con un servidor TURN configurado. La videollamada puede no funcionar en redes corporativas, redes de hospitales, o cualquier red que tenga firewalls restrictivos o que use NAT simetrica. NAT simetrica es un tipo de configuracion de red en la que el router asigna un puerto diferente por cada destino al que el cliente se conecta, lo que impide que los candidatos ICE de tipo server-reflexive funcionen. En esos casos, solo un servidor TURN que actue como relay puede garantizar la entrega del trafico de medios.
+
+El subdominio medicampo-turn.duckdns.org esta reservado para este proposito pero el servidor TURN no ha sido desplegado.
+
+Pasos para implementar el servidor TURN:
+
+Paso 1. Conectarse al droplet por SSH.
+
+ssh root@138.197.205.30
+
+Paso 2. Instalar coturn.
+
+apt-get update && apt-get install -y coturn
+
+Paso 3. Habilitar el servicio en el archivo /etc/default/coturn descomentando la linea TURNSERVER_ENABLED=1.
+
+Paso 4. Editar el archivo /etc/turnserver.conf con la siguiente configuracion minima.
+
+listening-port=3478
+tls-listening-port=5349
+listening-ip=0.0.0.0
+external-ip=138.197.205.30
+realm=medicampo-rtc.duckdns.org
+server-name=medicampo-rtc.duckdns.org
+user=medicampo:una_clave_segura
+lt-cred-mech
+fingerprint
+no-multicast-peers
+cert=/etc/letsencrypt/live/medicampo-rtc.duckdns.org/fullchain.pem
+pkey=/etc/letsencrypt/live/medicampo-rtc.duckdns.org/privkey.pem
+
+Paso 5. Agregar la configuracion del servidor TURN al archivo /root/livekit.yaml.
+
+rtc:
+    use_external_ip: true
+    turn_servers:
+        - host: medicampo-rtc.duckdns.org
+          port: 3478
+          protocol: udp
+          username: medicampo
+          credential: una_clave_segura
+        - host: medicampo-rtc.duckdns.org
+          port: 5349
+          protocol: tls
+          username: medicampo
+          credential: una_clave_segura
+
+Paso 6. Abrir los puertos necesarios en UFW si no estan ya abiertos.
+
+ufw allow 5349/tcp comment 'TURN TLS'
+ufw allow 5349/udp comment 'TURN TLS UDP'
+ufw reload
+
+Paso 7. Reiniciar coturn y LiveKit.
+
+systemctl start coturn
+docker restart livekit-server
+
+Paso 8. Verificar que coturn esta corriendo.
+
+systemctl status coturn
 
 9.6. Mejorar la interfaz de usuario de la videollamada
 
