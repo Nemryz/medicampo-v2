@@ -245,17 +245,17 @@ export default function Videollamada() {
                 }
                 roomRef.current = null;
             }
-            // Detener tracks de media activos
-            navigator.mediaDevices.getUserMedia({ audio: true, video: true })
-                .then(stream => {
-                    stream.getTracks().forEach(track => {
-                        track.stop();
-                        console.log('[Cleanup] Track detenido:', track.kind);
+            // Detener tracks activos en elementos de media del DOM sin solicitar camara nueva
+            document.querySelectorAll('video, audio').forEach(el => {
+                const media = el as HTMLMediaElement;
+                if (media.srcObject instanceof MediaStream) {
+                    (media.srcObject as MediaStream).getTracks().forEach(t => {
+                        t.stop();
+                        console.log('[Cleanup] Track detenido desde DOM:', t.kind);
                     });
-                })
-                .catch(() => {
-                    // Si no hay permisos, no hay tracks que detener
-                });
+                    media.srcObject = null;
+                }
+            });
         };
     }, []);
 
