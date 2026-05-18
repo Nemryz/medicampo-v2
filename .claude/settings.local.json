@@ -6,7 +6,9 @@
       "Bash(Format-List)",
       "Bash(git mv *)",
       "Bash(find \"C:/Users/ignac/OneDrive/Escritorio/medicampo\" -type f 2>/dev/null | head -50)",
-      "Read(//c/Users/ignac/OneDrive/Escritorio/medicampo/**)"
+      "Read(//c/Users/ignac/OneDrive/Escritorio/medicampo/**)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\ignac\\\\Downloads\\\\mediCampo-v2\" -Directory)",
+      "Bash(Select-Object -First 20)"
     ]
   }
 }
