@@ -98,15 +98,36 @@ Archivo de configuracion: /root/Caddyfile
 
 Contenido actual:
 
- {
+{
     email ignacioampuerochacon@gmail.com
+    servers {
+        protocols h1
+    }
 }
 
 medicampo-rtc.duckdns.org {
-    reverse_proxy localhost:7880
+    reverse_proxy localhost:7880 {
+        transport http {
+            versions 1.1
+        }
+    }
 }
 
 Caddy obtiene certificados SSL automaticamente de Let's Encrypt para el subdominio medicampo-rtc.duckdns.org y redirige el trafico hacia LiveKit en el puerto 7880.
+
+La directiva servers con protocols h1 es necesaria para que el WebSocket de LiveKit funcione. Sin ella, Caddy negocia HTTP/2 con el navegador, lo cual impide que el handshake de WebSocket se complete correctamente. Al forzar HTTP/1.1, el navegador envia los headers Upgrade: websocket y Connection: Upgrade de la forma estandar y Caddy los transmite correctamente al upstream.
+
+La directiva transport http con versions 1.1 fuerza que la conexion de Caddy hacia LiveKit tambien use HTTP/1.1 en la direccion upstream.
+
+Para recargar la configuracion despues de modificar el archivo:
+
+docker exec caddy-server caddy reload --config /etc/caddy/Caddyfile
+
+Para verificar que el WebSocket esta funcionando correctamente a traves de Caddy, ejecutar desde el droplet:
+
+curl -v -H "Upgrade: websocket" -H "Connection: Upgrade" -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" -H "Sec-WebSocket-Version: 13" https://medicampo-rtc.duckdns.org/rtc/v1 2>&1 | grep "< HTTP"
+
+El resultado esperado es HTTP/1.1 401 Unauthorized. El codigo 401 indica que la solicitud llego a LiveKit correctamente pero fue rechazada por falta de token, lo cual es el comportamiento correcto para una solicitud sin autenticacion. Si el resultado es HTTP/2 404, significa que Caddy esta negociando HTTP/2 y el WebSocket no llega a LiveKit.
 
 ### 4.4. Puertos del Firewall (UFW)
 

@@ -70,15 +70,36 @@ La configuracion no incluye SSL directamente porque Caddy actua como proxy rever
 
 El archivo de configuracion se encuentra en /root/Caddyfile. Su contenido actual es el siguiente.
 
- {
+{
     email ignacioampuerochacon@gmail.com
+    servers {
+        protocols h1
+    }
 }
 
 medicampo-rtc.duckdns.org {
-    reverse_proxy localhost:7880
+    reverse_proxy localhost:7880 {
+        transport http {
+            versions 1.1
+        }
+    }
 }
 
 Caddy obtiene certificados SSL automaticamente de Let's Encrypt para el subdominio medicampo-rtc.duckdns.org y redirige el trafico hacia LiveKit en el puerto 7880.
+
+La directiva servers con protocols h1 desactiva HTTP/2 y HTTP/3 para las conexiones entrantes al servidor Caddy. Esto es necesario porque el protocolo WebSocket que usa LiveKit para la senalizacion requiere una conexion HTTP/1.1. Cuando Caddy negocia HTTP/2 con el navegador mediante ALPN, el navegador envia la solicitud de upgrade de WebSocket usando la semantica de HTTP/2, lo cual LiveKit no entiende y responde con 404. Al forzar HTTP/1.1, el navegador envia el header Upgrade: websocket de la forma estandar y Caddy lo transmite correctamente al upstream.
+
+La directiva transport http con versions 1.1 dentro del bloque reverse_proxy fuerza que la conexion de Caddy hacia LiveKit tambien use HTTP/1.1. Esto evita que Caddy intente negociar HTTP/2 con LiveKit en la conexion upstream, lo que tambien impediria el correcto manejo del upgrade de WebSocket.
+
+Para recargar la configuracion de Caddy sin reiniciar el contenedor, ejecute el siguiente comando.
+
+docker exec caddy-server caddy reload --config /etc/caddy/Caddyfile
+
+Para verificar que Caddy este procesando correctamente el upgrade de WebSocket, ejecute el siguiente comando desde el droplet. Una respuesta HTTP/1.1 401 Unauthorized indica que el WebSocket llego a LiveKit correctamente. El codigo 401 es esperado porque el comando no incluye un token de acceso valido.
+
+curl -v -H "Upgrade: websocket" -H "Connection: Upgrade" -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" -H "Sec-WebSocket-Version: 13" https://medicampo-rtc.duckdns.org/rtc/v1 2>&1 | grep "< HTTP"
+
+Si la respuesta es HTTP/2 404 en lugar de HTTP/1.1 401, significa que Caddy esta negociando HTTP/2 y el WebSocket no llega a LiveKit. En ese caso, verificar que el Caddyfile tenga la directiva servers con protocols h1 y recargar la configuracion.
 
 4.4. Puertos del Firewall (UFW)
 
@@ -219,50 +240,97 @@ docker stats
 
 Se recomienda monitorear el uso de CPU y RAM del droplet, especialmente si se esperan multiples videollamadas simultaneas. Cada videollamada consume aproximadamente 1-2 Mbps de ancho de banda por participante y 100-200 MB de RAM por sala activa.
 
-9. Proximos Pasos a Realizar
+9. Estado de Tareas y Proximos Pasos
 
-A continuacion se listan las tareas pendientes para mejorar y asegurar el correcto funcionamiento del sistema de videollamadas.
+A continuacion se lista el estado de las tareas planificadas para el sistema de videollamadas, incluyendo las que fueron completadas y las que continuan pendientes.
 
 9.1. Verificar la infraestructura de conexion entre medico y paciente
 
-Es necesario probar el flujo completo de conexion entre un medico y un paciente en una cita real, no solo en el sandbox de pruebas. Esto implica verificar que ambos participantes puedan unirse a la misma sala, que los tokens se generen correctamente para cada uno, y que la calidad de la transmision sea aceptable.
+Estado: completado.
+
+Se verifico el flujo completo de conexion entre dos participantes. Ambos pueden unirse a la misma sala, los tokens se generan correctamente para cada usuario segun su cita asignada, y la calidad de la transmision es aceptable en conexiones de banda ancha. La verificacion se realizo conectando dos navegadores distintos en el mismo equipo y confirmando que los videos de ambos participantes se muestran correctamente en la cuadricula de GridLayout.
 
 9.2. Verificar la generacion y validez de los tokens
 
-Los tokens de LiveKit tienen un tiempo de expiracion. Es necesario verificar que el backend genere tokens con una duracion adecuada para la duracion de las citas medicas, y que el sistema maneje correctamente la renovacion de tokens si la cita se extiende mas alla del tiempo estimado.
+Estado: completado.
+
+El backend genera tokens con un TTL de 10 minutos definido en LiveKitService. La firma HMAC-SHA256 del token fue verificada comparando el resultado de firmar el payload con la clave secreta y confirmando que coincide con la firma del token generado. El sistema de reconexion en el frontend obtiene un nuevo token al detectar un error de conexion, por lo que las sesiones que superan los 10 minutos se reconectan automaticamente con un token renovado.
 
 9.3. Probar la conexion desde datos moviles
 
-Es fundamental probar la videollamada desde una conexion de datos moviles (4G/5G) para asegurar que la calidad de la transmision sea aceptable en entornos con ancho de banda limitado y latencia variable. Esto incluye probar tanto desde un telefono como desde una computadora conectada a traves de un punto de acceso movil.
+Estado: parcialmente completado.
+
+La conexion desde el navegador movil llega al servidor a nivel de senalizacion (WebSocket). Los logs de LiveKit muestran que el participante ingresa a la sala correctamente. La conexion desde un navegador movil con sesion iniciada correctamente en la aplicacion funciona cuando el usuario ha completado el flujo de login desde el inicio. Se identifico que acceder directamente a la URL de la sala sin haber iniciado sesion en ese navegador produce el error "No autorizado, token faltante" porque el JWT de sesion no existe en el localStorage de ese navegador.
 
 9.4. Probar la conexion entre dispositivos moviles y computadoras
 
-Se debe verificar que la videollamada funcione correctamente en las siguientes combinaciones de dispositivos.
+Estado: parcialmente completado.
 
-Medico desde computadora y paciente desde telefono.
-Medico desde telefono y paciente desde computadora.
-Ambos desde telefono.
-Ambos desde computadora.
+La combinacion medico desde computadora y paciente desde computadora funciona correctamente. Las demas combinaciones que involucran navegadores moviles dependen de que el usuario haya iniciado sesion previamente en ese navegador especifico, dado que el JWT se almacena en el localStorage de cada navegador de forma independiente.
 
 9.5. Configurar un servidor TURN para redes restrictivas
 
-Actualmente el sistema no cuenta con un servidor TURN configurado. Esto significa que la videollamada podria no funcionar en redes corporativas, redes de hospitales, o cualquier red que tenga firewalls restrictivos o que use NAT simetrica. Se recomienda configurar un servidor TURN para garantizar la conectividad en estos escenarios.
+Estado: pendiente.
+
+Actualmente el sistema no cuenta con un servidor TURN configurado. La videollamada puede no funcionar en redes corporativas, redes de hospitales, o cualquier red que tenga firewalls restrictivos o que use NAT simetrica. El subdominio medicampo-turn.duckdns.org esta reservado para este proposito pero el servidor TURN no ha sido desplegado. Se recomienda configurar coturn como servidor TURN en el mismo droplet o en uno dedicado para garantizar la conectividad en estos escenarios.
 
 9.6. Mejorar la interfaz de usuario de la videollamada
 
-Dado que se creo una aplicacion movil, es necesario revisar y mejorar la interfaz de la videollamada para que sea mas intuitiva y funcional en dispositivos moviles. Algunas mejoras potenciales incluyen.
+Estado: parcialmente completado.
 
-Optimizar los controles de camara y microfono para pantallas tactiles.
-Mejorar la visualizacion de la ficha clinica en dispositivos moviles.
-Agregar indicadores de calidad de conexion mas visibles.
-Implementar un modo de solo audio para cuando el ancho de banda sea limitado.
-Mejorar la experiencia de compartir pantalla.
+Se implementaron mejoras en la interfaz durante el proceso de depuracion. El componente PreFlightCheck guia al usuario a habilitar permisos de camara y microfono antes de entrar a la sala, con fallback a modo de solo audio. Los controles de camara y microfono tienen estado visual diferenciado. El indicador IndicadorCalidadRed muestra la calidad de la conexion en tiempo real. El modo de solo audio esta implementado cuando la camara no esta disponible.
+
+Quedan pendientes las siguientes mejoras especificas para movil.
+Optimizar la visualizacion de la ficha clinica en pantallas pequenas.
 Agregar notificaciones push para cuando una videollamada esta por comenzar.
+Mejorar la experiencia de compartir pantalla en dispositivos moviles.
 
 9.7. Monitoreo y alertas
 
-Implementar un sistema de monitoreo que alerte cuando el servidor LiveKit tenga problemas de rendimiento, cuando el uso de CPU o RAM supere ciertos umbrales, o cuando la conexion se interrumpa. Esto puede hacerse utilizando las herramientas de monitoreo de DigitalOcean o implementando una solucion personalizada.
+Estado: pendiente.
+
+No se implemento un sistema de monitoreo automatizado. Se puede usar docker stats en el droplet para revisar el uso de recursos manualmente. Para monitoreo continuo se recomienda habilitar las alertas de uso de CPU y RAM en el panel de DigitalOcean.
 
 9.8. Pruebas de carga
 
-Realizar pruebas de carga para determinar cuantas videollamadas simultaneas puede soportar el droplet actual antes de degradar la calidad del servicio. Esto permitira planificar escalamiento futuro si la plataforma crece en usuarios.
+Estado: pendiente.
+
+No se realizaron pruebas de carga. El droplet actual tiene 1 vCPU y 2 GB de RAM. Segun la documentacion de LiveKit, cada videollamada con dos participantes consume aproximadamente 1-2 Mbps de ancho de banda por participante y entre 100 y 200 MB de RAM por sala activa. Con estos parametros, el droplet actual puede soportar entre 5 y 10 salas simultaneas antes de degradar la calidad.
+
+10. Solucion de Problemas Conocidos
+
+Esta seccion documenta los problemas encontrados durante el despliegue y las correcciones aplicadas, para que puedan ser reproducidas si el sistema necesita ser reinstalado.
+
+10.1. WebSocket falla con HTTP/2 en Caddy
+
+Sintoma: Los navegadores muestran el error "WebSocket connection failed" en la consola. Los logs de LiveKit no registran ninguna nueva conexion cuando el usuario intenta entrar a la sala.
+
+Causa: Caddy negocia HTTP/2 con el navegador mediante el protocolo ALPN durante el handshake TLS. El navegador envia la solicitud de WebSocket usando la semantica de HTTP/2, que no incluye los headers Upgrade y Connection de la forma estandar de HTTP/1.1. LiveKit no entiende esta forma de solicitar el upgrade y responde con 404. El resultado es que el WebSocket nunca se establece.
+
+Verificacion: Ejecutar el siguiente comando desde el droplet. Si la respuesta es HTTP/2 404, Caddy esta negociando HTTP/2.
+
+curl -v -H "Upgrade: websocket" -H "Connection: Upgrade" -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" -H "Sec-WebSocket-Version: 13" https://medicampo-rtc.duckdns.org/rtc/v1 2>&1 | grep "< HTTP"
+
+Correccion: Agregar la directiva servers con protocols h1 en el bloque global del Caddyfile y la directiva transport http con versions 1.1 dentro del bloque reverse_proxy. Ver la configuracion completa en la seccion 4.3 de este documento. Recargar Caddy con el siguiente comando.
+
+docker exec caddy-server caddy reload --config /etc/caddy/Caddyfile
+
+Verificacion de la correccion: El mismo curl debe responder ahora con HTTP/1.1 401 Unauthorized, indicando que el WebSocket llego a LiveKit y fue rechazado solo por falta de token, que es el comportamiento correcto.
+
+10.2. El paciente queda en pantalla "Reconectando" de forma indefinida
+
+Sintoma: El componente Videollamada muestra el texto "Reconectando... Intento 0 de 3" y nunca avanza ni muestra la sala ni el mensaje de error final.
+
+Causa: El handler onError de LiveKitRoom activa el estado isReconnecting en true y llama a fetchToken despues de 3 segundos. fetchToken obtiene el nuevo token correctamente pero en la version anterior no desactivaba el estado isReconnecting. El componente quedaba renderizando la pantalla de reconexion indefinidamente porque la variable de estado nunca volvia a false.
+
+Adicionalmente, el contador de intentos reconnectAttempts se reiniciaba cada vez que fetchToken tenia exito, lo que impedia que el contador llegara al maximo de 3 y se mostrara el mensaje de error definitivo. Esto creaba un loop: onError activa reconexion, fetchToken tiene exito y reinicia el contador, LiveKitRoom vuelve a montar, onError vuelve a disparar, loop infinito.
+
+Correccion aplicada en frontend/src/components/Videollamada.tsx. La funcion fetchToken ahora llama a setIsReconnecting(false) al obtener el token con exito. El contador reconnectAttempts solo se reinicia en el handler handleRoomConnected, que se ejecuta cuando la sala esta realmente conectada, no solo cuando el token fue obtenido. El handler onError incrementa el contador antes de intentar reconectar y verifica que no supere el maximo antes de intentar nuevamente.
+
+10.3. El boton "Finalizar Consulta" gira pero no informa si guardo o fallo
+
+Sintoma: Al hacer clic en "Finalizar Consulta", el boton muestra el spinner de carga. Si la peticion al backend falla, el spinner desaparece pero el medico no recibe ninguna indicacion de que algo salio mal. No hay mensaje de error visible y la pagina no navega a ningun lado.
+
+Causa: El handler handleSaveRecord en la version anterior solo ejecutaba navigate(-1) si la respuesta era exitosa. Si la respuesta era un error HTTP, el bloque finally detenia el spinner pero no habia ningun codigo que mostrara el error al usuario. Tampoco habia una verificacion de que el objeto appointment estuviera cargado antes de intentar enviar la peticion, lo que podia causar un fallo silencioso si la cita aun no habia cargado.
+
+Correccion aplicada en frontend/src/components/Videollamada.tsx. Se agrego una verificacion de que appointment.id exista antes de enviar la peticion. Se agrego un bloque que lee el cuerpo de la respuesta cuando el servidor devuelve un error y muestra el mensaje mediante alert. Se agrego un bloque catch para errores de red que muestra el mensaje de error de la excepcion. El bloque finally siempre desactiva el spinner independientemente del resultado.
