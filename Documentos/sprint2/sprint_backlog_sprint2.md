@@ -22,17 +22,17 @@ El sistema permite el registro de un nuevo usuario completando los campos nombre
 
 T03.1 — Diseñar el modelo Prisma de la entidad User con soporte de roles diferenciados, definiendo los campos id, rut único, name, email único, password cifrado, role como String con valor por defecto PATIENT y la relación opcional con Specialty mediante specialtyId, además de los timestamps automáticos createdAt y updatedAt. Esta tarea quedó implementada en el archivo backend/prisma/schema.prisma y fue una pieza clave para sostener todo el control de acceso posterior.
 
-T03.2 — Desarrollar el endpoint POST /api/auth/register que reciba los datos del nuevo usuario, valide que no exista previamente otro registro con el mismo correo ni con el mismo RUT, hashee la contraseña usando bcryptjs y guarde el objeto en la base de datos retornando todos los campos del usuario menos el password. El endpoint quedó implementado en authController.ts y delega la lógica de negocio al AuthService.ts, manteniendo la separación de responsabilidades.
+T03.2 — DeRegister.tsx con un formulario que solicite nombre completo, RUT, correo y contraseña, valide los campos del cliente y, tras un registro exitoso, ejecute automáticamente un segundo llamado al endpoint de login para que el usuario quede autenticado sin necesidad de ingresar nuevamente sus credenciales.
+
+T03.6 — Implementar el AuthContext.tsx que persista el token y el objeto usuario en localStorage bajo las claves medicampo_token y medicampo_user, lea estos valores al cargar la aplicación para restaurar la sesión y exponga los métodos login y logout al resto de la SPA, evitando así el prop-drilling.
+
+T03.7 — Integrar el componente RoleRoute en App.tsx como guardián de rutas, verificando el rol del usuario autenticado antes de permitirle navegar a las vistas restringidas, de manera que un usuario con rol PATIENT no pueda entrar a las rutas pensadas para DOCTOR ni viceversa.sarrollar el endpoint POST /api/auth/register que reciba los datos del nuevo usuario, valide que no exista previamente otro registro con el mismo correo ni con el mismo RUT, hashee la contraseña usando bcryptjs y guarde el objeto en la base de datos retornando todos los campos del usuario menos el password. El endpoint quedó implementado en authController.ts y delega la lógica de negocio al AuthService.ts, manteniendo la separación de responsabilidades.
 
 T03.3 — Desarrollar el endpoint POST /api/auth/login que busque el usuario por correo electrónico, compare la contraseña ingresada con la versión cifrada mediante bcrypt.compare y, ante una coincidencia válida, genere un token JWT firmado con la clave secreta del servidor, retornando dicho token junto con el objeto usuario al cliente. La configuración del JWT quedó centralizada en backend/src/config/jwt.ts.
 
 T03.4 — Construir la interfaz de Login.tsx con un formulario que solicite correo y contraseña, valide los campos antes de enviarlos, muestre los mensajes de error que retorne el backend y, ante una respuesta exitosa, invoque al método login del AuthContext para iniciar la sesión, redirigiendo al dashboard correspondiente al rol del usuario.
 
-T03.5 — Construir la interfaz de Register.tsx con un formulario que solicite nombre completo, RUT, correo y contraseña, valide los campos del cliente y, tras un registro exitoso, ejecute automáticamente un segundo llamado al endpoint de login para que el usuario quede autenticado sin necesidad de ingresar nuevamente sus credenciales.
-
-T03.6 — Implementar el AuthContext.tsx que persista el token y el objeto usuario en localStorage bajo las claves medicampo_token y medicampo_user, lea estos valores al cargar la aplicación para restaurar la sesión y exponga los métodos login y logout al resto de la SPA, evitando así el prop-drilling.
-
-T03.7 — Integrar el componente RoleRoute en App.tsx como guardián de rutas, verificando el rol del usuario autenticado antes de permitirle navegar a las vistas restringidas, de manera que un usuario con rol PATIENT no pueda entrar a las rutas pensadas para DOCTOR ni viceversa.
+T03.5 — Construir la interfaz de
 
 ### Estado al cierre del Sprint 2 para la HU3
 
