@@ -7,14 +7,15 @@ const AuthService_1 = require("../services/AuthService");
  * LiveKitController
  *
  * S - Single Responsibility: Solo maneja la capa HTTP (request/response) de LiveKit.
- * D - Dependency Inversion: Depende de LiveKitService (abstracción).
+ * D - Dependency Inversion: Depende de LiveKitService (abstraccion).
  */
 const liveKitService = new LiveKitService_1.LiveKitService();
 const getAccessToken = async (req, res) => {
     try {
         const roomName = (req.query.room || req.query.roomName);
         const participantName = (req.query.identity || req.query.username);
-        const result = await liveKitService.getAccessToken(roomName, participantName);
+        const userId = Number(req.user.sub);
+        const result = await liveKitService.getAccessToken(roomName, participantName, userId);
         res.json(result);
     }
     catch (error) {
