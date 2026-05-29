@@ -375,14 +375,29 @@ export default function Videollamada() {
                     </div>
 
                     <div className="flex-1 flex overflow-hidden lg:flex-row flex-col relative">
-                        <div className="flex-1 relative bg-black flex overflow-hidden min-h-[40vh] lg:min-h-0">
-                            <div className={`flex-1 transition-all duration-500 relative h-full flex flex-col ${showChat ? 'lg:mr-[320px]' : ''}`}>
+                        {/* NOTA (arreglo de layout): la zona de video y el chat ahora son columnas
+                            HERMANAS (antes el chat era una capa 'absolute' dentro del video). En
+                            escritorio el chat va a la derecha del video y en movil debajo, de modo
+                            que ya no se superpone a los controles de llamada. */}
+                        <div className="flex-1 relative bg-black flex flex-col lg:flex-row overflow-hidden min-h-[40vh] lg:min-h-0">
+                            {/* Columna de video: los controles flotan centrados SOLO sobre esta zona.
+                                (Antes se centraban sobre todo el contenedor y quedaban encima de la
+                                barra de mensajes del chat, dificultando ver lo que se escribia.) */}
+                            <div className="flex-1 relative h-full flex flex-col min-w-0 min-h-0">
                                 <EscenarioVideo />
                                 <RoomAudioRenderer />
                                 <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-fit px-4">
                                     <ControlesPersonalizados finalizarLlamada={() => navigate(-1)} />
                                 </div>
-                                <div className={`absolute right-0 top-0 bottom-0 w-full lg:w-[320px] bg-[var(--mc-bg-surface)] border-l border-gray-800 transition-transform duration-500 z-40 ${showChat ? 'translate-x-0' : 'translate-x-full'}`}>
+                            </div>
+
+                            {/* Columna de chat: reserva su propio espacio y empuja el video.
+                                Se mantiene montado y solo colapsa su tamano (w/h -> 0) al cerrar,
+                                para no perder el historial de mensajes ni la conexion del chat. */}
+                            <div className={`shrink-0 overflow-hidden transition-all duration-500 ease-out ${showChat
+                                ? 'h-[45vh] w-full border-t border-gray-800 lg:h-full lg:w-[320px] lg:border-t-0 lg:border-l'
+                                : 'h-0 w-full lg:h-full lg:w-0'}`}>
+                                <div className="h-[45vh] w-full lg:h-full lg:w-[320px] bg-[var(--mc-bg-surface)]">
                                     {livekitToken && <ChatConsulta />}
                                 </div>
                             </div>
