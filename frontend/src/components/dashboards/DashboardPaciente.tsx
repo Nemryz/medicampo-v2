@@ -118,7 +118,19 @@ export default function DashboardPaciente() {
 
                         {/* Botón de Acción Especializado */}
                         <div className="flex flex-col items-stretch sm:items-end gap-3 min-w-[150px]">
-                            {apt.status === 'CONFIRMED' && apt.meetingLink ? (
+                            {/* ============================================================
+                                NOTA (MODO PRUEBAS — acceso a cualquier cita):
+                                Para PRUEBAS REALES se permite ingresar a la sala de CUALQUIER
+                                cita que tenga 'meetingLink', sin importar su estado
+                                (PENDING/CONFIRMED/etc.) ni la fecha.
+
+                                >>> PARA VOLVER AL COMPORTAMIENTO REALISTA EN PRODUCCIÓN:
+                                    Reemplazar la condición de abajo por:
+                                        apt.status === 'CONFIRMED' && apt.meetingLink
+                                    (es decir, mostrar "Ingresar a la Sala" solo cuando el
+                                     médico ya CONFIRMÓ la cita).
+                                ============================================================ */}
+                            {apt.meetingLink ? (
                                 <button
                                     onClick={() => navigate(apt.meetingLink!)}
                                     className="px-8 py-3 bg-blue-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition"

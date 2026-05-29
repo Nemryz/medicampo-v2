@@ -168,6 +168,22 @@ export default function DashboardMedico() {
                         <button onClick={() => handleStatusUpdate(apt.id, 'CANCELLED', apt.date, apt.meetingLink)} className="p-2 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition"><X size={18} /></button>
                       </div>
                     </div>
+                    {/* ============================================================
+                        NOTA (MODO PRUEBAS — acceso a cualquier cita):
+                        Botón para entrar a la sala de una cita aún PENDIENTE, sin tener
+                        que aceptarla ni esperar al día agendado. Es solo para pruebas reales.
+                        >>> PARA VOLVER AL COMPORTAMIENTO REALISTA EN PRODUCCIÓN:
+                            Eliminar este botón. El médico debería entrar únicamente desde
+                            "Consultas de Hoy" (citas CONFIRMED del día actual).
+                        ============================================================ */}
+                    {apt.meetingLink && (
+                      <button
+                        onClick={() => navigate(apt.meetingLink!)}
+                        className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition"
+                      >
+                        <Video size={16} /> Entrar a la Sala (Pruebas)
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -185,14 +201,31 @@ export default function DashboardMedico() {
           ) : (
             <div className="space-y-3">
               {futureApts.map(apt => (
-                <div key={apt.id} className="p-4 rounded-2xl border border-purple-50 hover:bg-purple-50/30 transition flex items-center justify-between">
+                <div key={apt.id} className="p-4 rounded-2xl border border-purple-50 hover:bg-purple-50/30 transition flex items-center justify-between gap-3">
                   <div>
                     <p className="font-bold text-gray-900">{apt.patient.name}</p>
                     <p className="text-xs text-purple-600 font-medium uppercase tracking-tighter">
                       {new Date(apt.date).toLocaleDateString('es-CL', { dateStyle: 'medium' })}
                     </p>
                   </div>
-                  <Clock size={18} className="text-purple-200" />
+                  {/* ============================================================
+                      NOTA (MODO PRUEBAS — acceso a cualquier cita):
+                      Botón para entrar a una cita FUTURA sin esperar a que llegue el día
+                      agendado. Solo para pruebas reales.
+                      >>> PARA VOLVER AL COMPORTAMIENTO REALISTA EN PRODUCCIÓN:
+                          Eliminar este botón y dejar solo el ícono de reloj. El médico
+                          debería entrar únicamente desde "Consultas de Hoy".
+                      ============================================================ */}
+                  {apt.meetingLink ? (
+                    <button
+                      onClick={() => navigate(apt.meetingLink!)}
+                      className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition shrink-0"
+                    >
+                      <Video size={16} /> Entrar (Pruebas)
+                    </button>
+                  ) : (
+                    <Clock size={18} className="text-purple-200" />
+                  )}
                 </div>
               ))}
             </div>

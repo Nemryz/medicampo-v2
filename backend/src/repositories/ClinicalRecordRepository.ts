@@ -18,10 +18,22 @@ export class ClinicalRecordRepository {
         appointmentId: number,
         data: Partial<ClinicalRecord>
     ): Promise<ClinicalRecord> {
+        // (NOTA arreglo guardado de ficha): quitamos las claves con valor 'undefined'
+        // para no sobrescribir datos existentes en el 'update' ni romper el 'create'.
+        const clean = Object.fromEntries(
+            Object.entries(data).filter(([, value]) => value !== undefined)
+        );
+
         return this.prisma.clinicalRecord.upsert({
             where: { appointmentId },
-            create: { appointmentId, ...data } as any,
-            update: data,
+            // (NOTA arreglo guardado de ficha): 'symptoms' y 'diagnosis' son OBLIGATORIOS
+            // en el esquema Prisma, pero el formulario del medico solo envia 'diagnosis' y
+            // 'prescription'. Sin un valor para 'symptoms', Prisma lanzaba
+            // "Argument `symptoms` is missing" -> error 500 "Error al guardar la ficha clinica".
+            // Garantizamos un string por defecto SOLO al crear; si el form llegara a enviarlos,
+            // 'clean' los sobreescribe.
+            create: { appointmentId, symptoms: '', diagnosis: '', ...clean } as any,
+            update: clean as any,
         });
     }
 

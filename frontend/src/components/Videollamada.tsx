@@ -398,7 +398,8 @@ export default function Videollamada() {
                                 ? 'h-[45vh] w-full border-t border-gray-800 lg:h-full lg:w-[320px] lg:border-t-0 lg:border-l'
                                 : 'h-0 w-full lg:h-full lg:w-0'}`}>
                                 <div className="h-[45vh] w-full lg:h-full lg:w-[320px] bg-[var(--mc-bg-surface)]">
-                                    {livekitToken && <ChatConsulta />}
+                                    {/* (NOTA persistencia chat) pasamos roomId para guardar/restaurar el historial por sala */}
+                                    {livekitToken && <ChatConsulta roomId={roomId} />}
                                 </div>
                             </div>
                         </div>
